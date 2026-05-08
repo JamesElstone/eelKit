@@ -73,15 +73,16 @@ final class LoginService
         $user = $this->userAuthenticationService->authenticateByEmailAddress($emailAddress, $password);
 
         if (!is_array($user)) {
+            $failureDetails = $this->userAuthenticationService->primaryCredentialFailureDetails($emailAddress);
             $rateLimit = $this->userAuthenticationService->recordFailedPasswordAttempt($emailAddress, $deviceId);
             $this->sessionAuthenticationService->clearPendingOtpSetup();
             $this->sessionAuthenticationService->clearPendingOtp();
             $this->userHistoryStore->recordLogonEvent(
-                null,
+                $failureDetails['user_id'] ?? null,
                 $emailAddress,
                 'login_failed',
                 false,
-                'Invalid email address or password.',
+                (string)($failureDetails['reason'] ?? 'Primary credentials were rejected.'),
                 null,
                 $this->userSessionService->buildRequestMetadata($deviceId)
             );
@@ -97,7 +98,7 @@ final class LoginService
                 'errors' => !empty($rateLimit['is_locked'])
                     ? ['This account has been locked after too many incorrect password attempts.']
                     : (!empty($rateLimit['is_throttled'])
-                        ? ['Incorrect password. Please wait before trying again.']
+                        ? ['Invalid email address or password. Please wait before trying again.']
                         : ['Invalid email address or password.']),
             ];
         }

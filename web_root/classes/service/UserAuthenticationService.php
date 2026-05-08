@@ -346,6 +346,41 @@ final class UserAuthenticationService
         return $this->authenticateLoadedUser($users[0], $password);
     }
 
+    public function primaryCredentialFailureDetails(string $emailAddress): array
+    {
+        $emailAddress = $this->normaliseEmailAddress($emailAddress);
+
+        if ($emailAddress === '') {
+            return [
+                'user_id' => null,
+                'reason' => 'Email address was blank.',
+            ];
+        }
+
+        $user = $this->loadUserByEmailAddress($emailAddress);
+
+        if ($user === null) {
+            return [
+                'user_id' => null,
+                'reason' => 'Email address was not recognised.',
+            ];
+        }
+
+        $userId = max(0, (int)($user['id'] ?? 0));
+
+        if ((int)($user['is_active'] ?? 0) !== 1) {
+            return [
+                'user_id' => $userId > 0 ? $userId : null,
+                'reason' => 'Email address belongs to a disabled account.',
+            ];
+        }
+
+        return [
+            'user_id' => $userId > 0 ? $userId : null,
+            'reason' => 'Password did not match the active user account.',
+        ];
+    }
+
     public function loginRateLimitStatus(string $emailAddress, ?string $deviceId = null): array
     {
         $emailAddress = $this->normaliseEmailAddress($emailAddress);

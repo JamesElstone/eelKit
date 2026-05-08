@@ -105,8 +105,61 @@ $harness->check(LoginService::class, 'records failed primary credential attempts
 
         $harness->assertTrue(empty($result['success']));
         $harness->assertTrue(empty($result['requires_otp']));
+        $harness->assertSame(['Invalid email address or password.'], (array)($result['errors'] ?? []));
         $harness->assertSame(1, (int)($result['rate_limit']['consecutive_failed_password_attempts'] ?? 0));
         $harness->assertSame(0, (new SessionAuthenticationService())->pendingOtpSetupUserId('device-a'));
+
+        $log = InterfaceDB::fetchOne(
+            'SELECT user_id, reason
+             FROM user_logon_history
+             WHERE attempted_email_address = :email_address
+               AND event_type = :event_type
+             ORDER BY occurred_at DESC, id DESC
+             LIMIT 1',
+            [
+                'email_address' => $emailAddress,
+                'event_type' => 'login_failed',
+            ]
+        );
+
+        $harness->assertTrue(is_array($log));
+        $harness->assertSame($userId, (int)($log['user_id'] ?? 0));
+        $harness->assertSame('Password did not match the active user account.', (string)($log['reason'] ?? ''));
+    });
+});
+
+$harness->check(LoginService::class, 'records unknown email address failures without exposing them to the user', function () use ($harness, $withTemporaryLoginUser): void {
+    $withTemporaryLoginUser(function (UserAuthenticationService $authService) use ($harness): void {
+        $_SESSION = [];
+        $loginService = new LoginService(
+            $authService,
+            new OtpService('eelKit Framework'),
+            new QrCodeService(),
+            new SessionAuthenticationService()
+        );
+        $emailAddress = 'missing-' . bin2hex(random_bytes(4)) . '@example.test';
+
+        $result = $loginService->startLogin($emailAddress, 'Wrong Password 1!', 'device-a');
+
+        $harness->assertTrue(empty($result['success']));
+        $harness->assertSame(['Invalid email address or password.'], (array)($result['errors'] ?? []));
+
+        $log = InterfaceDB::fetchOne(
+            'SELECT user_id, reason
+             FROM user_logon_history
+             WHERE attempted_email_address = :email_address
+               AND event_type = :event_type
+             ORDER BY occurred_at DESC, id DESC
+             LIMIT 1',
+            [
+                'email_address' => $emailAddress,
+                'event_type' => 'login_failed',
+            ]
+        );
+
+        $harness->assertTrue(is_array($log));
+        $harness->assertSame(0, (int)($log['user_id'] ?? 0));
+        $harness->assertSame('Email address was not recognised.', (string)($log['reason'] ?? ''));
     });
 });
 
