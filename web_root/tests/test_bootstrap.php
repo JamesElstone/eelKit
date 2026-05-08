@@ -76,6 +76,31 @@ $tests = [
             throw new RuntimeException('PDO driver setup hint was not included for a missing driver exception.');
         }
     },
+    'explains first run configuration permission failures without developer options' => static function (): void {
+        $path = APP_CONFIG . 'app.php';
+        $message = eel_configuration_bootstrap_exception_message(new RuntimeException(
+            'Application configuration directory is not writable: ' . dirname($path)
+        ));
+
+        if ($message === null || !str_contains($message, 'Application configuration could not be initialised.')) {
+            throw new RuntimeException('Configuration bootstrap failure did not get a setup message.');
+        }
+
+        if (!str_contains($message, dirname($path))) {
+            throw new RuntimeException('Configuration bootstrap failure did not include the failing path.');
+        }
+
+        if (!str_contains($message, 'secure/app.php')) {
+            throw new RuntimeException('Configuration bootstrap failure did not mention secure/app.php.');
+        }
+    },
+    'does not expose unrelated errors through the configuration bootstrap exception path' => static function (): void {
+        $message = eel_configuration_bootstrap_exception_message(new RuntimeException('The current user could not be resolved.'));
+
+        if ($message !== null) {
+            throw new RuntimeException('Unrelated exception was exposed as a configuration bootstrap failure.');
+        }
+    },
 ];
 
 foreach ($tests as $description => $callback) {

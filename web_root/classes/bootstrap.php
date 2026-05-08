@@ -104,6 +104,11 @@ function eel_public_exception_message(Throwable $exception): string
 {
     $schemaHint = eel_schema_exception_hint($exception);
     $databaseDriverHint = eel_database_driver_exception_hint($exception);
+    $configurationBootstrapMessage = eel_configuration_bootstrap_exception_message($exception);
+
+    if ($configurationBootstrapMessage !== null) {
+        return $configurationBootstrapMessage;
+    }
 
     if (eel_developer_options_enabled()) {
         $message = 'Unexpected server error: ' . $exception->getMessage();
@@ -122,6 +127,27 @@ function eel_public_exception_message(Throwable $exception): string
     }
 
     return $schemaHint === null ? $message : $message . ' ' . $schemaHint;
+}
+
+function eel_configuration_bootstrap_exception_message(Throwable $exception): ?string
+{
+    for ($current = $exception; $current instanceof Throwable; $current = $current->getPrevious()) {
+        $message = $current->getMessage();
+
+        if (
+            str_starts_with($message, 'Unable to create application configuration directory:')
+            || str_starts_with($message, 'Unable to write application configuration file:')
+            || str_starts_with($message, 'Application configuration file path is a directory:')
+            || str_starts_with($message, 'Application configuration file is not writable:')
+            || str_starts_with($message, 'Application configuration directory does not exist:')
+            || str_starts_with($message, 'Application configuration directory is not writable:')
+        ) {
+            return 'Application configuration could not be initialised. ' . $message
+                . '. Check the secure directory permissions, or create secure/app.php before loading the app.';
+        }
+    }
+
+    return null;
 }
 
 function eel_database_driver_exception_hint(Throwable $exception): ?string
