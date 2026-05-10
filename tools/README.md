@@ -22,29 +22,34 @@ Run the wrapper that matches your shell from the project root. The wrappers reso
 
 ## setupDb
 
-Creates the stored application configuration if needed, loads the baseline schema for an empty database, and applies pending SQL migrations.
+Creates the stored application configuration if needed, asks for database settings only when `db.dsn` is empty, loads the baseline schema for an empty database, applies pending SQL migrations, and then runs `tools/bin/setExternalIP.sh`.
 
 Linux, macOS, or Git Bash:
 
 ```sh
 tools/bin/setupDb.sh
+tools/bin/setupDb.sh --driver=mysql --host=127.0.0.1 --database=eelkit --user=root
 ```
 
 Windows Command Prompt:
 
 ```bat
 tools\bat\setupDb.bat
+tools\bat\setupDb.bat --driver=mysql --host=127.0.0.1 --database=eelkit --user=root
 ```
 
 Direct PHP:
 
 ```sh
 php tools/php/setupDb.php
+php tools/php/setupDb.php --driver=sqlite --sqlite-path=secure/eelkit.sqlite
 ```
+
+Use `--configure-db` to update existing database settings, `--migrate-only` to skip configuration and external IP updates, or `--skip-external-ip` to skip only the final external IP step.
 
 ## migrateDb
 
-Applies pending SQL migrations from `db_schema/migrations`. If the configured database is empty, it first loads `db_schema/eelKit.schema.sql`.
+Compatibility entrypoint for applying pending SQL migrations from `db_schema/migrations`. For normal setup and upgrades, prefer `setupDb` so configuration, migrations, and external IP setup happen in the right order. If the configured database is empty, the migration runner first loads `db_schema/eelKit.schema.sql`.
 
 Linux, macOS, or Git Bash:
 
@@ -66,7 +71,7 @@ php tools/php/migrateDb.php
 
 ## setDbConfig
 
-Updates `db.dsn`, `db.user`, and `db.pass` in `secure/app.php`. It can run interactively or accept options.
+Compatibility entrypoint for updating `db.dsn`, `db.user`, and `db.pass` in `secure/app.php`. For normal setup, prefer passing the same options to `setupDb`; it only asks for database details when needed.
 
 Interactive:
 

@@ -47,47 +47,52 @@ When adding a migration:
 
 Use the tools in `tools/` from the project root.
 
-Set up a new database and apply pending migrations:
+Set up configuration, hydrate a new empty database, apply pending migrations, and update the stored external IP:
 
 ```sh
 tools/bin/setupDb.sh
+tools/bin/setupDb.sh --driver=mysql --host=127.0.0.1 --database=eelkit --user=root
 ```
 
 Windows Command Prompt:
 
 ```bat
 tools\bat\setupDb.bat
+tools\bat\setupDb.bat --driver=mysql --host=127.0.0.1 --database=eelkit --user=root
 ```
 
-Apply pending migrations only:
+Apply pending migrations only, without changing database settings or the stored external IP:
 
 ```sh
 tools/bin/migrateDb.sh
+tools/bin/setupDb.sh --migrate-only
 ```
 
 Windows Command Prompt:
 
 ```bat
 tools\bat\migrateDb.bat
+tools\bat\setupDb.bat --migrate-only
 ```
 
 Direct PHP equivalents:
 
 ```sh
 php tools/php/setupDb.php
+php tools/php/setupDb.php --migrate-only
 php tools/php/migrateDb.php
 ```
 
 ## Runtime Configuration
 
-The migration tools use the database settings from `secure/app.php`. If the database connection has not been configured yet, run:
+The setup tool uses the database settings from `secure/app.php`. If the database connection has not been configured yet, run `setupDb` with database options or let it prompt interactively. To change an existing database connection, run:
 
 ```sh
-tools/bin/setDbConfig.sh
+tools/bin/setupDb.sh --configure-db
 ```
 
 Windows Command Prompt:
 
 ```bat
-tools\bat\setDbConfig.bat
+tools\bat\setupDb.bat --configure-db
 ```

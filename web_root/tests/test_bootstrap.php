@@ -58,14 +58,14 @@ $tests = [
             throw new RuntimeException('Developer exception detail was not preserved.');
         }
 
-        if (!str_contains($message, 'php tools/migrateDb.php')) {
+        if (!str_contains($message, 'php tools/php/setupDb.php --migrate-only')) {
             throw new RuntimeException('Migration tool hint was not included for a schema exception.');
         }
     },
     'does not suggest the migration tool for unrelated exceptions' => static function (): void {
         $message = eel_public_exception_message(new RuntimeException('The current user could not be resolved.'));
 
-        if (str_contains($message, 'php tools/migrateDb.php')) {
+        if (str_contains($message, 'php tools/php/setupDb.php --migrate-only')) {
             throw new RuntimeException('Migration tool hint was included for an unrelated exception.');
         }
     },

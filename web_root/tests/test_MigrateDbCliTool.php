@@ -9,17 +9,19 @@ declare(strict_types=1);
 
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'testFramework' . DIRECTORY_SEPARATOR . 'ServiceClassTestHarness.php';
 
-$migrateDbToolPath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . 'migrateDb.php';
+$toolsPhpDirectory = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . 'php';
+
+$migrateDbToolPath = $toolsPhpDirectory . DIRECTORY_SEPARATOR . 'migrateDb.php';
 ob_start();
 require_once $migrateDbToolPath;
 $includeOutput = ob_get_clean();
 
-$setupDbToolPath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . 'setupDb.php';
+$setupDbToolPath = $toolsPhpDirectory . DIRECTORY_SEPARATOR . 'setupDb.php';
 ob_start();
 require_once $setupDbToolPath;
 $setupIncludeOutput = ob_get_clean();
 
-$setDbConfigToolPath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . 'setDbConfig.php';
+$setDbConfigToolPath = $toolsPhpDirectory . DIRECTORY_SEPARATOR . 'setDbConfig.php';
 ob_start();
 require_once $setDbConfigToolPath;
 $setDbConfigIncludeOutput = ob_get_clean();
@@ -37,6 +39,8 @@ $harness->check('migrateDb.php', 'loads CLI helper functions without running mig
 $harness->check('setupDb.php', 'loads CLI helper functions without running setup', function () use ($harness, $setupIncludeOutput): void {
     $harness->assertSame('', $setupIncludeOutput);
     $harness->assertTrue(function_exists('eel_run_database_setup_tool'));
+    $harness->assertTrue(function_exists('eel_database_setup_arguments'));
+    $harness->assertTrue(function_exists('eel_database_setup_has_database_options'));
 });
 
 $harness->check('setDbConfig.php', 'loads CLI helper functions without running config update', function () use ($harness, $setDbConfigIncludeOutput): void {
@@ -69,6 +73,26 @@ $harness->check('setDbConfig.php', 'parses named and positional connection argum
     $harness->assertSame('odbc:positional', $positional['dsn']);
     $harness->assertSame('positional_user', $positional['user']);
     $harness->assertSame('positional_password', $positional['password']);
+});
+
+$harness->check('setupDb.php', 'keeps setup-only options separate from database config options', function () use ($harness): void {
+    $arguments = eel_database_setup_arguments([
+        'setupDb.php',
+        '--skip-external-ip',
+        '--driver=mysql',
+        '--host=db.example.test',
+        '--database=eelkit',
+    ]);
+
+    $harness->assertTrue($arguments['skip_external_ip']);
+    $harness->assertSame([
+        'setupDb.php',
+        '--driver=mysql',
+        '--host=db.example.test',
+        '--database=eelkit',
+    ], $arguments['db_argv']);
+    $harness->assertSame('mysql', $arguments['db_arguments']['driver']);
+    $harness->assertTrue(eel_database_setup_has_database_options($arguments['db_arguments']));
 });
 
 $harness->check('setDbConfig.php', 'builds DSNs for supported database choices', function () use ($harness): void {
