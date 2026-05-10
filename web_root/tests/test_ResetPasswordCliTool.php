@@ -8,7 +8,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'testFramework' . DIRECTORY_SEPARATOR . 'ServiceClassTestHarness.php';
-$resetPasswordToolPath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . 'reset_password.php';
+$resetPasswordToolPath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . 'php' . DIRECTORY_SEPARATOR . 'reset_password.php';
 $previousErrorHandler = set_error_handler(static function (int $severity, string $message): bool {
     return str_contains($message, 'already defined');
 });

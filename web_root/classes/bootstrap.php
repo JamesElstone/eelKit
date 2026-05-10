@@ -184,7 +184,7 @@ function eel_schema_exception_hint(Throwable $exception): ?string
             || str_contains($message, 'sqlstate[42703]')
             || str_contains($message, 'sqlstate[42p01]')
         ) {
-            return 'This looks like a database schema mismatch. Run the migration tool from the project root: php tools/migrateDb.php';
+            return 'This looks like a database schema mismatch. Run the migration tool from the project root: php tools/php/setupDb.php --migrate-only';
         }
     }
 

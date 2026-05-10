@@ -34,8 +34,9 @@ The project is deliberately simple: no package manager is required for the curre
 - `web_root/classes/service/ChartSvgService.php` - internal SVG chart renderer.
 - `secure/app.php` - application configuration, hydrated automatically on first run.
 - `db_schema/eelKit.schema.sql` - full database schema for a new install.
-- `tools/reset_password.php` - A CLI password reset helper.
-- `tools/setExternalIP.php` - A CLI helper for storing external IP configuration.
+- `tools/php/reset_password.php` - A CLI password reset helper.
+- `tools/php/setupDb.php` - A CLI helper for setup, database configuration, migrations, and external IP refresh.
+- `tools/php/setExternalIP.php` - A CLI helper for storing external IP configuration.
 - `web_root/tests` - project test runner and test cases.
 - `secure` - local secrets such as generated security keys and bootstrap code.
 - `file_logs` - local log output.
@@ -52,7 +53,7 @@ The project is deliberately simple: no package manager is required for the curre
    CREATE DATABASE eelKit CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    ```
 
-4. Configure a PDO DSN in `secure/app.php`. If the file does not exist yet, visiting the app or running a tool will create it from the built-in defaults:
+4. Configure a PDO DSN through the setup tool. If `secure/app.php` does not exist yet, visiting the app or running a tool will create it from the built-in defaults:
 
    ```php
    'db' => [
@@ -63,12 +64,12 @@ The project is deliberately simple: no package manager is required for the curre
    ],
    ```
 
-   The default DSN is `odbc:eelkit`. If you use a different driver, update the DSN and credentials to match your environment.
+   The setup tool asks for database settings if `db.dsn` is empty. You can also pass settings directly, for example `php tools/php/setupDb.php --driver=mysql --host=127.0.0.1 --database=eelkit --user=root`.
 
-5. Run the database setup tool. It makes sure `secure/app.php` exists, then runs migrations. If the configured database has no eelKit application tables yet, it loads the baseline schema first. It then applies any pending incremental migrations:
+5. Run the database setup tool. It makes sure `secure/app.php` exists, configures the database if needed, runs migrations, loads the baseline schema first if the configured database has no eelKit application tables, and then refreshes the external IP setting:
 
    ```bash
-   php tools/setupDb.php
+   php tools/php/setupDb.php
    ```
 
 6. Make sure the PHP process can write to:
@@ -106,13 +107,13 @@ The schema uses InnoDB foreign keys for user-owned records:
 Incremental upgrades live in `db_schema/migrations` and are applied in filename order by:
 
 ```bash
-php tools/migrateDb.php
+php tools/php/setupDb.php --migrate-only
 ```
 
 For first-time setup, prefer:
 
 ```bash
-php tools/setupDb.php
+php tools/php/setupDb.php
 ```
 
 The migration runner creates a `schema_migrations` table and records each applied SQL file. Keep migration filenames ordered with the date and a sequence number, for example:
@@ -160,19 +161,19 @@ The runner returns JSON and exits with a non-zero code if any test fails.
 Reset a user's password from the command line:
 
 ```bash
-php tools/reset_password.php
+php tools/php/reset_password.php
 ```
 
 Set or refresh external IP related configuration:
 
 ```bash
-php tools/setExternalIP.php
+php tools/php/setExternalIP.php
 ```
 
 Hydrate `secure/app.php` and initialise or migrate the configured database:
 
 ```bash
-php tools/setupDb.php
+php tools/php/setupDb.php
 ```
 
 ## Production Checklist
