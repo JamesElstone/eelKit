@@ -78,6 +78,11 @@ final class RequestFramework
         return $this->query[$key] ?? $default;
     }
 
+    public function queryValues(): array
+    {
+        return $this->query;
+    }
+
     public function post(string $key, mixed $default = null): mixed
     {
         if (array_key_exists($key, $this->post)) {
@@ -91,9 +96,23 @@ final class RequestFramework
         return $default;
     }
 
+    public function postValues(): array
+    {
+        return array_merge($this->post, $this->jsonInput);
+    }
+
     public function server(string $key, mixed $default = null): mixed
     {
         return $this->server[$key] ?? $default;
+    }
+
+    public function replayWith(array $query, array $post = []): self
+    {
+        $server = $this->server;
+        $server['REQUEST_METHOD'] = 'GET';
+        unset($server['CONTENT_TYPE'], $server['CONTENT_LENGTH'], $server['HTTP_X_REQUESTED_WITH']);
+
+        return new self($query, $post, $server, $this->files, $this->headers, null, $this->cookies);
     }
 
     public function cookie(string $key, mixed $default = null): mixed

@@ -25,7 +25,7 @@ final class ActionDispatcherFramework
         $cardAction = $request->cardAction();
         if ($cardAction === '') {
             if ((string)$request->input('_pagination', '') === '1') {
-                return ActionResultFramework::success(['page.reload']);
+                return ActionResultFramework::success([$this->paginationInvalidationFact($request)]);
             }
 
             return ActionResultFramework::none();
@@ -54,5 +54,16 @@ final class ActionDispatcherFramework
         }
 
         return $cardAction . 'Action';
+    }
+
+    private function paginationInvalidationFact(RequestFramework $request): string
+    {
+        $fact = trim((string)$request->input('_invalidate_fact', ''));
+
+        if ($fact === '' || preg_match('/^[a-z0-9_.-]+$/i', $fact) !== 1) {
+            return 'page.reload';
+        }
+
+        return $fact;
     }
 }

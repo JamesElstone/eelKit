@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 final class AppConfigurationStore
 {
+    private const DEFAULT_APP_STRAPLINE = 'Bookkeeping without the fog and panic';
+
     private static ?array $config = null;
 
     public static function config(bool $reload = false): array
@@ -84,6 +86,29 @@ final class AppConfigurationStore
         return self::config(true);
     }
 
+    public static function setEditableApplicationSettings(array $settings): array
+    {
+        $config = self::readStoredConfig();
+
+        foreach ([
+            'app_name',
+            'app_strapline',
+            'brand-mark',
+            'developer_options',
+            'navigation',
+            'antifraud',
+            'session',
+        ] as $key) {
+            if (array_key_exists($key, $settings)) {
+                $config[$key] = $settings[$key];
+            }
+        }
+
+        self::writeStoredConfig($config);
+
+        return self::config(true);
+    }
+
     public static function ensureUploadExportKey(int $length = 32): string
     {
         $config = self::readStoredConfig();
@@ -126,12 +151,19 @@ final class AppConfigurationStore
         return $value;
     }
 
+    public static function appStrapline(bool $reload = false): string
+    {
+        $appStrapline = trim((string)self::get('app_strapline', self::DEFAULT_APP_STRAPLINE, $reload));
+
+        return $appStrapline !== '' ? $appStrapline : self::DEFAULT_APP_STRAPLINE;
+    }
+
     private static function defaults(): array
     {
         return [
             'app_name' => 'eelKit Framework',
             'brand-mark' => 'E',
-            'app_strapline' => 'A php framework',
+            'app_strapline' => self::DEFAULT_APP_STRAPLINE,
             'developer_options' => true,
             'db' => [
                 'dsn' => '',

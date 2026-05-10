@@ -26,7 +26,7 @@ final class CardRendererFramework
     {
         $card = $this->cards->create($cardKey);
         $domId = HelperFramework::cardDomId($pageId, $cardKey);
-        $cardContext = $this->buildCardContext($card, $context, $services);
+        $cardContext = $this->buildContextForCard($card, $context, $services);
         $body = $card->render($cardContext);
         if (trim($body) === '') {
             return '';
@@ -93,7 +93,7 @@ final class CardRendererFramework
         return $this->cards->create($cardKey)->invalidationFacts();
     }
 
-    private function buildCardContext(
+    public function buildContextForCard(
         CardInterfaceFramework $card,
         array $pageContext,
         PageServiceFramework $services

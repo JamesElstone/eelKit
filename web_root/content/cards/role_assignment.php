@@ -101,22 +101,24 @@ final class _role_assignmentCard extends CardBaseFramework
         }
 
         return '
-            <form method="post" action="?page=roles" data-ajax="true" class="toolbar">
-                ' . $cards . '
-                <input type="hidden" name="action" value="roles-select-role">
-                <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
-                <label class="helper" for="roles-role-selector">Role</label>
-                <select class="selector-input" id="roles-role-selector" name="role_id">
-                    ' . $roleOptionsHtml . '
-                </select>
-            </form>
-            <form method="post" action="?page=roles" data-ajax="true" class="toolbar">
-                ' . $cards . '
-                <input type="hidden" name="action" value="roles-create-role">
-                <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
-                <input class="input" type="text" name="new_role_name" placeholder="New role name" required>
-                <button class="button" type="submit">Add Role</button>
-            </form>
+            <div class="card-toolbar">
+                <form method="post" action="?page=roles" data-ajax="true" class="toolbar">
+                    ' . $cards . '
+                    <input type="hidden" name="action" value="roles-select-role">
+                    <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
+                    <label for="roles-role-selector">Selected Role</label>
+                    <select class="selector-input" id="roles-role-selector" name="role_id">
+                        ' . $roleOptionsHtml . '
+                    </select>
+                </form>
+                <form method="post" action="?page=roles" data-ajax="true" class="toolbar role-assignment-create">
+                    ' . $cards . '
+                    <input type="hidden" name="action" value="roles-create-role">
+                    <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
+                    <input class="input" type="text" name="new_role_name" placeholder="New role name" required>
+                    <button class="button" type="submit">Add Role</button>
+                </form>
+            </div>
             <div class="table-scroll">
                 <table>
                     <thead>

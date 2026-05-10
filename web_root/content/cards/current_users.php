@@ -25,6 +25,11 @@ final class _current_usersCard extends CardBaseFramework
         ];
     }
 
+    public function helper(array $context): string
+    {
+        return 'Assign a role for each user, then manage access, OTP reset, and password updates from the same table.';
+    }
+
     protected function additionalInvalidationFacts(): array
     {
         return [];
@@ -37,61 +42,61 @@ final class _current_usersCard extends CardBaseFramework
 
     public function render(array $context): string
     {
-        $dashboard = $this->dashboard($context);
-        $users = (array)($dashboard['current_users'] ?? []);
-        $roles = (array)($dashboard['roles'] ?? []);
-        $currentUser = (array)($dashboard['current_user'] ?? []);
-        $csrfToken = (string)($context['page']['csrf_token'] ?? '');
-        $rowsHtml = '';
-
-        foreach ($users as $user) {
-            $isCurrentUser = (int)($user['id'] ?? 0) === (int)($currentUser['id'] ?? 0);
-            $sessionSummary = trim((string)($user['current_session_browser_label'] ?? ''));
-            $sessionIp = trim((string)($user['current_session_ip_address'] ?? ''));
-
-            if ($sessionSummary === '') {
-                $sessionSummary = 'No active session';
-            } elseif ($sessionIp !== '') {
-                $sessionSummary .= ' (' . $sessionIp . ')';
-            }
-
-            $rowsHtml .= '<tr>
-                <td>' . HelperFramework::escape((string)($user['display_name'] ?? '')) . ($isCurrentUser ? ' <span class="badge info">You</span>' : '') . '</td>
-                <td>' . HelperFramework::escape((string)($user['email_address'] ?? '')) . '</td>
-                <td>' . $this->roleSelectHtml($context, $user, $roles, $csrfToken) . '</td>
-                <td><span class="badge ' . ((int)($user['is_active'] ?? 0) === 1 ? 'success' : 'danger') . '">' . ((int)($user['is_active'] ?? 0) === 1 ? 'Enabled' : 'Disabled') . '</span>' . (!empty($user['must_change_password']) ? ' <span class="badge warning">Password change required</span>' : '') . '</td>
-                <td>' . $this->otpRequiredSelectHtml($context, $user, $csrfToken) . '</td>
-                <td>' . HelperFramework::escape($sessionSummary) . '</td>
-                <td>' . $this->actionsHtml($context, $user, $csrfToken) . '</td>
-            </tr>';
-        }
-
-        if ($rowsHtml === '') {
-            $rowsHtml = '<tr><td colspan="7">No users were found.</td></tr>';
-        }
-
-        return '
-            <p class="helper">Assign a role for each user, then manage access, OTP reset, and password updates from the same table.</p>
-            <div class="table-scroll">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>User</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>OTP</th>
-                            <th>Current Session</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>' . $rowsHtml . '</tbody>
-                </table>
-            </div>
-        ';
+        return $this->table($context)->render($context, [
+            'cards[]' => (array)($context['page']['page_cards'] ?? []),
+        ]);
     }
 
-    private function roleSelectHtml(array $context, array $user, array $roles, string $csrfToken): string
+    public function tables(array $context): array
+    {
+        return [$this->table($context)];
+    }
+
+    private function table(array $context): TableFramework
+    {
+        return TableFramework::make($this->key(), $this->rows($context))
+            ->filename('current-users')
+            ->exportLimit(500)
+            ->empty('No users were found.')
+            ->column(
+                'display_name',
+                'User',
+                html: fn(array $row): string => HelperFramework::escape((string)($row['display_name'] ?? ''))
+                    . (!empty($row['is_current_user']) ? ' <span class="badge info">You</span>' : ''),
+                export: static fn(array $row): string => (string)($row['display_name'] ?? '')
+            )
+            ->textColumn('email_address', 'Email')
+            ->column(
+                'role_label',
+                'Role',
+                html: fn(array $row): string => $this->roleSelectHtml($context, $row),
+                export: static fn(array $row): string => (string)($row['role_label'] ?? 'No role assigned')
+            )
+            ->column(
+                'status_label',
+                'Status',
+                html: static fn(array $row): string => '<span class="badge ' . ((int)($row['is_active'] ?? 0) === 1 ? 'success' : 'danger') . '">'
+                    . ((int)($row['is_active'] ?? 0) === 1 ? 'Enabled' : 'Disabled')
+                    . '</span>'
+                    . (!empty($row['must_change_password']) ? ' <span class="badge warning">Password change required</span>' : ''),
+                export: static fn(array $row): string => (string)($row['status_label'] ?? '')
+            )
+            ->column(
+                'otp_required_label',
+                'OTP',
+                html: fn(array $row): string => $this->otpRequiredSelectHtml($context, $row),
+                export: static fn(array $row): string => (string)($row['otp_required_label'] ?? '')
+            )
+            ->textColumn('session_summary', 'Current Session')
+            ->column(
+                'actions',
+                'Actions',
+                html: fn(array $row): string => $this->actionsHtml($context, $row),
+                exportable: false
+            );
+    }
+
+    private function roleSelectHtml(array $context, array $user): string
     {
         $userId = max(0, (int)($user['id'] ?? 0));
         if ($userId <= 0) {
@@ -101,8 +106,8 @@ final class _current_usersCard extends CardBaseFramework
         $currentRoleId = isset($user['role_id']) && $user['role_id'] !== null && $user['role_id'] !== ''
             ? (int)$user['role_id']
             : 0;
-        $currentUser = (array)($this->dashboard($context)['current_user'] ?? []);
-        $isCurrentUser = $userId === max(0, (int)($currentUser['id'] ?? 0));
+        $roles = (array)($this->dashboard($context)['roles'] ?? []);
+        $isCurrentUser = !empty($user['is_current_user']);
         $cards = $this->hiddenFields($context);
         $optionsHtml = '';
 
@@ -123,7 +128,7 @@ final class _current_usersCard extends CardBaseFramework
         return '<form method="post" action="?page=users" data-ajax="true">
             ' . $cards . '
             <input type="hidden" name="action" value="users-set-role">
-            <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
+            <input type="hidden" name="csrf_token" value="' . HelperFramework::escape((string)($context['page']['csrf_token'] ?? '')) . '">
             <input type="hidden" name="target_user_id" value="' . HelperFramework::escape((string)$userId) . '">
             <select class="selector-input" name="target_role_id">
                 ' . $optionsHtml . '
@@ -131,7 +136,7 @@ final class _current_usersCard extends CardBaseFramework
         </form>';
     }
 
-    private function otpRequiredSelectHtml(array $context, array $user, string $csrfToken): string
+    private function otpRequiredSelectHtml(array $context, array $user): string
     {
         $userId = max(0, (int)($user['id'] ?? 0));
         if ($userId <= 0) {
@@ -144,7 +149,7 @@ final class _current_usersCard extends CardBaseFramework
         return '<form method="post" action="?page=users" data-ajax="true">
             ' . $cards . '
             <input type="hidden" name="action" value="users-set-otp-required">
-            <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
+            <input type="hidden" name="csrf_token" value="' . HelperFramework::escape((string)($context['page']['csrf_token'] ?? '')) . '">
             <input type="hidden" name="target_user_id" value="' . HelperFramework::escape((string)$userId) . '">
             <select class="selector-input" name="otp_required">
                 <option value="1"' . ($otpRequired ? ' selected' : '') . '>Required</option>
@@ -153,16 +158,16 @@ final class _current_usersCard extends CardBaseFramework
         </form>';
     }
 
-    private function actionsHtml(array $context, array $user, string $csrfToken): string
+    private function actionsHtml(array $context, array $user): string
     {
         $userId = max(0, (int)($user['id'] ?? 0));
         if ($userId <= 0) {
             return '';
         }
 
-        $currentUser = (array)($this->dashboard($context)['current_user'] ?? []);
-        $isCurrentUser = $userId === max(0, (int)($currentUser['id'] ?? 0));
+        $isCurrentUser = !empty($user['is_current_user']);
         $cards = $this->hiddenFields($context);
+        $csrfToken = (string)($context['page']['csrf_token'] ?? '');
         $enableState = (int)($user['is_active'] ?? 0) === 1 ? '0' : '1';
         $enableLabel = $enableState === '1' ? 'Enable' : 'Disable';
         $toggleButton = $isCurrentUser && $enableState === '0'
@@ -219,5 +224,69 @@ final class _current_usersCard extends CardBaseFramework
     private function dashboard(array $context): array
     {
         return (array)(($context['services'] ?? [])['current_users_dashboard'] ?? []);
+    }
+
+    private function rows(array $context): array
+    {
+        $dashboard = $this->dashboard($context);
+        $currentUser = (array)($dashboard['current_user'] ?? []);
+        $rolesById = [];
+        $rows = [];
+
+        foreach ((array)($dashboard['roles'] ?? []) as $role) {
+            $roleId = (int)($role['id'] ?? 0);
+            if ($roleId > 0) {
+                $rolesById[$roleId] = (string)($role['role_name'] ?? '');
+            }
+        }
+
+        foreach ((array)($dashboard['current_users'] ?? []) as $user) {
+            if (!is_array($user)) {
+                continue;
+            }
+
+            $user['is_current_user'] = (int)($user['id'] ?? 0) === (int)($currentUser['id'] ?? 0);
+            $user['role_label'] = $this->roleLabel($user, $rolesById);
+            $user['status_label'] = $this->statusLabel($user);
+            $user['otp_required_label'] = (int)($user['otp_required'] ?? 1) === 1 ? 'Required' : 'Optional';
+            $user['session_summary'] = $this->sessionSummary($user);
+            $rows[] = $user;
+        }
+
+        return $rows;
+    }
+
+    private function roleLabel(array $user, array $rolesById): string
+    {
+        $roleId = isset($user['role_id']) && $user['role_id'] !== null && $user['role_id'] !== ''
+            ? (int)$user['role_id']
+            : 0;
+
+        return $roleId > 0 && trim((string)($rolesById[$roleId] ?? '')) !== ''
+            ? (string)$rolesById[$roleId]
+            : 'No role assigned';
+    }
+
+    private function statusLabel(array $user): string
+    {
+        $parts = [(int)($user['is_active'] ?? 0) === 1 ? 'Enabled' : 'Disabled'];
+
+        if (!empty($user['must_change_password'])) {
+            $parts[] = 'Password change required';
+        }
+
+        return implode(' | ', $parts);
+    }
+
+    private function sessionSummary(array $user): string
+    {
+        $sessionSummary = trim((string)($user['current_session_browser_label'] ?? ''));
+        $sessionIp = trim((string)($user['current_session_ip_address'] ?? ''));
+
+        if ($sessionSummary === '') {
+            return 'No active session';
+        }
+
+        return $sessionIp !== '' ? $sessionSummary . ' (' . $sessionIp . ')' : $sessionSummary;
     }
 }

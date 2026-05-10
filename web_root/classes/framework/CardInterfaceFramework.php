@@ -26,6 +26,8 @@ interface CardInterfaceFramework
 
     public function services(): array;
 
+    public function tables(array $context): array;
+
     public function invalidationFacts(): array;
 
     public function handleError(string $serviceKey, array $error, array $context): string;

@@ -146,6 +146,46 @@ final class HelperFramework
         return $html;
     }
 
+    public static function jsonSummary(string $json, string $separator = ' | '): string
+    {
+        $json = trim($json);
+        if ($json === '') {
+            return '';
+        }
+
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded) || $decoded === []) {
+            return '';
+        }
+
+        $parts = [];
+        foreach ($decoded as $key => $value) {
+            if (is_array($value) || is_object($value)) {
+                continue;
+            }
+
+            if (is_bool($value)) {
+                $value = $value ? 'true' : 'false';
+            }
+
+            $parts[] = str_replace('_', ' ', (string)$key) . ': ' . (string)$value;
+        }
+
+        return implode($separator, $parts);
+    }
+
+    public static function compactText(string $value, int $maxLength = 96): string
+    {
+        $value = trim(preg_replace('/\s+/', ' ', $value) ?? $value);
+        $maxLength = max(1, $maxLength);
+
+        if ($value === '' || mb_strlen($value) <= $maxLength) {
+            return $value;
+        }
+
+        return rtrim(mb_substr($value, 0, max(1, $maxLength - 3))) . '...';
+    }
+
     public static function paginateArray(array $items, int $page = 1, int $pageSize = 25): array
     {
         $total = count($items);
@@ -405,6 +445,11 @@ final class HelperFramework
         $resolvedDateFormat = self::displayDateFormat();
 
         return $date->format($resolvedDateFormat . ' ' . $timeFormat);
+    }
+
+    public static function accountingPeriodLabel(DateTimeInterface|string $startDate, DateTimeInterface|string $endDate): string
+    {
+        return self::displayDate($startDate) . ' to ' . self::displayDate($endDate);
     }
 
     public static function displayMonthYear(DateTimeInterface|string $value): string
