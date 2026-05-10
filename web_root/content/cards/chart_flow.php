@@ -7,25 +7,25 @@
  */
 declare(strict_types=1);
 
-final class _chart_trendsCard extends CardBaseFramework
+final class _chart_flowCard extends CardBaseFramework
 {
     public function key(): string
     {
-        return 'chart_trends';
+        return 'chart_flow';
     }
 
     public function helper(array $context): string
     {
-        return 'Standalone SVG bar, stacked bar, and multi-series line chart examples rendered by ChartSvgService.';
+        return 'Standalone SVG Sankey example showing income sources flowing into total value and then into allocations.';
     }
 
     public function services(): array
     {
         return [
             [
-                'key' => 'trend_charts',
+                'key' => 'flow_charts',
                 'service' => ChartSvgService::class,
-                'method' => 'demoTrendCharts',
+                'method' => 'demoFlowCharts',
             ],
         ];
     }
@@ -37,18 +37,16 @@ final class _chart_trendsCard extends CardBaseFramework
 
     public function render(array $context): string
     {
-        $charts = (array)(($context['services'] ?? [])['trend_charts'] ?? []);
+        $charts = (array)(($context['services'] ?? [])['flow_charts'] ?? []);
 
-        return '<div class="chart-demo-grid">'
-            . $this->chartPanel('Bar graph', (string)($charts['bar'] ?? ''))
-            . $this->chartPanel('Stacked bar graph', (string)($charts['stacked_bar'] ?? ''))
-            . $this->chartPanel('Line graph', (string)($charts['line'] ?? ''))
+        return '<div class="chart-demo-grid chart-demo-grid-wide">'
+            . $this->chartPanel('Income flow Sankey', (string)($charts['sankey'] ?? ''))
             . '</div>';
     }
 
     private function chartPanel(string $title, string $chartHtml): string
     {
-        return '<div class="chart-panel">'
+        return '<div class="chart-panel chart-panel-wide">'
             . '<h3>' . HelperFramework::escape($title) . '</h3>'
             . $chartHtml
             . '</div>';

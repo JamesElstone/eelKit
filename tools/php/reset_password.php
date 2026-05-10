@@ -180,6 +180,14 @@ function eel_cli_run_reset_password_tool(): int
     }
 
     eel_cli_writeln('Here is the OTP Secret String: ' . $secret);
+    eel_cli_writeln('FreeOTP manual entry settings:');
+    eel_cli_writeln('- Email: ' . (string)($user['email_address'] ?? $username));
+    eel_cli_writeln('- Display Name: eelKit Framework');
+    eel_cli_writeln('- Secret (Base32): ' . $secret);
+    eel_cli_writeln('- Type: TOTP');
+    eel_cli_writeln('- Digits: 6');
+    eel_cli_writeln('- Algorithm: SHA1');
+    eel_cli_writeln('- Interval: 30');
 
     $otpCode = eel_cli_prompt('Please enter the 6 digit OTP code: ');
 

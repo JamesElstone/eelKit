@@ -16,7 +16,7 @@ final class _chart_compositionCard extends CardBaseFramework
 
     public function helper(array $context): string
     {
-        return 'Standalone SVG pie and gauge examples rendered by ChartSvgService.';
+        return 'Standalone SVG pie, donut, and gauge examples rendered by ChartSvgService.';
     }
 
     public function services(): array
@@ -41,6 +41,7 @@ final class _chart_compositionCard extends CardBaseFramework
 
         return '<div class="chart-demo-grid">'
             . $this->chartPanel('Pie chart', (string)($charts['pie'] ?? ''))
+            . $this->chartPanel('Donut chart', (string)($charts['donut'] ?? ''))
             . $this->chartPanel('Gauge', (string)($charts['gauge'] ?? ''))
             . '</div>';
     }

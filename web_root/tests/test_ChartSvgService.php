@@ -25,6 +25,20 @@ require_once __DIR__ . DIRECTORY_SEPARATOR . 'testFramework' . DIRECTORY_SEPARAT
             $harness->assertTrue(str_contains($html, 'Test bar'));
         });
 
+        $harness->check(ChartSvgService::class, 'renders stacked bar chart SVG', static function () use ($harness, $service, $points): void {
+            $html = $service->stackedBar([
+                ['label' => 'First', 'points' => $points],
+                ['label' => 'Second', 'points' => [
+                    ['label' => 'One', 'value' => 2],
+                    ['label' => 'Two', 'value' => 3],
+                ]],
+            ], ['title' => 'Test stacked bar']);
+
+            $harness->assertTrue(str_contains($html, '<svg'));
+            $harness->assertTrue(str_contains($html, 'chart-stacked-bar-segment'));
+            $harness->assertTrue(str_contains($html, 'Second'));
+        });
+
         $harness->check(ChartSvgService::class, 'renders line chart SVG', static function () use ($harness, $service, $points): void {
             $html = $service->line($points, ['title' => 'Test line']);
 
@@ -56,12 +70,39 @@ require_once __DIR__ . DIRECTORY_SEPARATOR . 'testFramework' . DIRECTORY_SEPARAT
             $harness->assertTrue(str_contains($html, 'Test pie'));
         });
 
+        $harness->check(ChartSvgService::class, 'renders donut chart SVG', static function () use ($harness, $service, $points): void {
+            $html = $service->donut($points, ['title' => 'Test donut']);
+
+            $harness->assertTrue(str_contains($html, '<svg'));
+            $harness->assertTrue(str_contains($html, 'chart-donut-segment'));
+            $harness->assertTrue(str_contains($html, 'Test donut'));
+        });
+
         $harness->check(ChartSvgService::class, 'renders gauge SVG', static function () use ($harness, $service): void {
             $html = $service->gauge(72, ['title' => 'Test gauge']);
 
             $harness->assertTrue(str_contains($html, '<svg'));
             $harness->assertTrue(str_contains($html, 'chart-gauge-value'));
             $harness->assertTrue(str_contains($html, 'Test gauge'));
+        });
+
+        $harness->check(ChartSvgService::class, 'renders sankey SVG', static function () use ($harness, $service): void {
+            $html = $service->sankey([
+                ['id' => 'cash', 'label' => 'Cash', 'column' => 0],
+                ['id' => 'total', 'label' => 'Total', 'column' => 1],
+                ['id' => 'profit', 'label' => 'Profit', 'column' => 2],
+            ], [
+                ['source' => 'cash', 'target' => 'total', 'value' => 100],
+                ['source' => 'total', 'target' => 'profit', 'value' => 100],
+            ], [
+                'title' => 'Test sankey',
+                'balance_node' => 'total',
+            ]);
+
+            $harness->assertTrue(str_contains($html, '<svg'));
+            $harness->assertTrue(str_contains($html, 'chart-sankey-link'));
+            $harness->assertTrue(str_contains($html, 'Balanced flow'));
+            $harness->assertTrue(str_contains($html, 'Test sankey'));
         });
     }
 );

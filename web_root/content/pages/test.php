@@ -42,7 +42,7 @@ final class _test extends PageContextFramework
 
     public function subtitle(): string
     {
-        return 'A small framework demo showing shared page context flowing between cards.';
+        return 'A framework demo showing shared page context, card services, and AJAX card updates.';
     }
 
     public function services(): array
@@ -53,8 +53,6 @@ final class _test extends PageContextFramework
     public function cards(): array
     {
         return [
-            'chart_trends',
-            'chart_composition',
             'test_source',
             'test_target',
             'otp_status_test',
