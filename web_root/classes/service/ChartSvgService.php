@@ -64,6 +64,77 @@ final class ChartSvgService
     }
 
     /**
+     * @param array<int, array{label?: string, color?: string, points?: array<int, array{label?: string, value?: int|float|string, color?: string}>}> $seriesInput
+     * @param array<string, mixed> $options
+     */
+    public function stackedBar(array $seriesInput, array $options = []): string
+    {
+        $series = $this->normaliseSeries($seriesInput, 5);
+        if ($series === []) {
+            return $this->emptyChart('Stacked bar chart', $options);
+        }
+
+        $width = $this->dimension($options, 'width', 640);
+        $height = $this->dimension($options, 'height', 300);
+        $padding = ['top' => 34.0, 'right' => count($series) > 1 ? 150.0 : 24.0, 'bottom' => 54.0, 'left' => 48.0];
+        $plotWidth = $width - $padding['left'] - $padding['right'];
+        $plotHeight = $height - $padding['top'] - $padding['bottom'];
+        $xLabels = $this->seriesLabels($series);
+        $totals = array_fill(0, count($xLabels), 0.0);
+
+        foreach ($series as $stackSeries) {
+            foreach ($stackSeries['points'] as $index => $point) {
+                $totals[$index] = ($totals[$index] ?? 0.0) + $point['value'];
+            }
+        }
+
+        $max = max(1.0, max($totals));
+        $barGap = 14.0;
+        $barWidth = max(10.0, ($plotWidth - ($barGap * (count($xLabels) - 1))) / count($xLabels));
+        $barsHtml = '';
+        $labelHtml = '';
+        $legendHtml = '';
+
+        foreach ($xLabels as $index => $label) {
+            $x = $padding['left'] + (($barWidth + $barGap) * $index);
+            $stackedValue = 0.0;
+
+            foreach ($series as $seriesIndex => $stackSeries) {
+                $point = $stackSeries['points'][$index] ?? ['label' => $label, 'value' => 0.0];
+                $value = (float)$point['value'];
+                if ($value <= 0) {
+                    continue;
+                }
+
+                $segmentHeight = ($value / $max) * $plotHeight;
+                $y = $padding['top'] + $plotHeight - (($stackedValue + $value) / $max * $plotHeight);
+                $barsHtml .= '<rect class="chart-bar chart-stacked-bar-segment" x="' . $this->number($x) . '" y="' . $this->number($y) . '" width="' . $this->number($barWidth) . '" height="' . $this->number($segmentHeight) . '" fill="' . HelperFramework::escape($stackSeries['color']) . '">';
+                $barsHtml .= '<title>' . HelperFramework::escape($stackSeries['label'] . ' - ' . $label . ': ' . $this->formatValue($value)) . '</title>';
+                $barsHtml .= '</rect>';
+                $stackedValue += $value;
+            }
+
+            $labelHtml .= '<text class="chart-axis-label" x="' . $this->number($x + ($barWidth / 2)) . '" y="' . $this->number($height - 22) . '" text-anchor="middle">' . HelperFramework::escape($label) . '</text>';
+            $labelHtml .= '<text class="chart-value-label" x="' . $this->number($x + ($barWidth / 2)) . '" y="' . $this->number(max($padding['top'] + 14, $padding['top'] + $plotHeight - (($totals[$index] / $max) * $plotHeight) - 8)) . '" text-anchor="middle">' . HelperFramework::escape($this->formatValue($totals[$index])) . '</text>';
+        }
+
+        foreach ($series as $seriesIndex => $stackSeries) {
+            $legendY = 52 + ($seriesIndex * 23);
+            $legendX = $padding['left'] + $plotWidth + 20;
+            $legendHtml .= '<rect class="chart-legend-swatch" x="' . $this->number($legendX) . '" y="' . $this->number($legendY - 12) . '" width="12" height="12" fill="' . HelperFramework::escape($stackSeries['color']) . '"></rect>';
+            $legendHtml .= '<text class="chart-legend-label" x="' . $this->number($legendX + 20) . '" y="' . $this->number($legendY) . '">' . HelperFramework::escape($stackSeries['label']) . '</text>';
+        }
+
+        return $this->svg(
+            $width,
+            $height,
+            (string)($options['title'] ?? 'Stacked bar chart'),
+            $this->gridLines($padding, $plotWidth, $plotHeight, $max, 4) . $barsHtml . $labelHtml . $legendHtml . $this->axisLines($padding, $plotWidth, $plotHeight),
+            'stacked-bar'
+        );
+    }
+
+    /**
      * @param array<int, array{label?: string, value?: int|float|string, color?: string, points?: array<int, array{label?: string, value?: int|float|string, color?: string}>}> $points
      * @param array<string, mixed> $options
      */
@@ -191,6 +262,60 @@ final class ChartSvgService
     }
 
     /**
+     * @param array<int, array{label?: string, value?: int|float|string, color?: string}> $segments
+     * @param array<string, mixed> $options
+     */
+    public function donut(array $segments, array $options = []): string
+    {
+        $segments = $this->normalisePoints($segments);
+        if ($segments === []) {
+            return $this->emptyChart('Donut chart', $options);
+        }
+
+        $width = $this->dimension($options, 'width', 420);
+        $height = $this->dimension($options, 'height', 300);
+        $radius = min($width, $height) * 0.27;
+        $strokeWidth = max(18.0, $radius * 0.42);
+        $centerX = $width * 0.34;
+        $centerY = $height * 0.5;
+        $total = max(1.0, array_sum(array_column($segments, 'value')));
+        $circumference = 2 * pi() * $radius;
+        $offset = 0.0;
+        $segmentsHtml = '';
+        $legendHtml = '';
+
+        foreach ($segments as $index => $segment) {
+            $share = $segment['value'] / $total;
+            $dash = $share * $circumference;
+            $gap = max(0.0, $circumference - $dash);
+            $color = $this->color($segment, $index);
+            $percent = round($share * 100, 1);
+
+            $segmentsHtml .= '<circle class="chart-donut-segment" cx="' . $this->number($centerX) . '" cy="' . $this->number($centerY) . '" r="' . $this->number($radius) . '" fill="none" stroke="' . HelperFramework::escape($color) . '" stroke-width="' . $this->number($strokeWidth) . '" stroke-dasharray="' . $this->number($dash) . ' ' . $this->number($gap) . '" stroke-dashoffset="' . $this->number(-$offset) . '" transform="rotate(-90 ' . $this->number($centerX) . ' ' . $this->number($centerY) . ')">';
+            $segmentsHtml .= '<title>' . HelperFramework::escape($segment['label'] . ': ' . $this->formatValue($segment['value']) . ' (' . $percent . '%)') . '</title>';
+            $segmentsHtml .= '</circle>';
+
+            $legendY = 62 + ($index * 28);
+            $legendHtml .= '<rect class="chart-legend-swatch" x="' . $this->number($width * 0.66) . '" y="' . $this->number($legendY - 11) . '" width="12" height="12" fill="' . HelperFramework::escape($color) . '"></rect>';
+            $legendHtml .= '<text class="chart-legend-label" x="' . $this->number(($width * 0.66) + 20) . '" y="' . $this->number($legendY) . '">' . HelperFramework::escape($segment['label'] . ' ' . $percent . '%') . '</text>';
+            $offset += $dash;
+        }
+
+        $centerLabel = trim((string)($options['center_label'] ?? $this->formatValue($total)));
+        $centerSubLabel = trim((string)($options['center_sub_label'] ?? 'Total'));
+        $centerHtml = '<text class="chart-donut-number" x="' . $this->number($centerX) . '" y="' . $this->number($centerY - 2) . '" text-anchor="middle">' . HelperFramework::escape($centerLabel) . '</text>';
+        $centerHtml .= '<text class="chart-donut-label" x="' . $this->number($centerX) . '" y="' . $this->number($centerY + 18) . '" text-anchor="middle">' . HelperFramework::escape($centerSubLabel) . '</text>';
+
+        return $this->svg(
+            $width,
+            $height,
+            (string)($options['title'] ?? 'Donut chart'),
+            $segmentsHtml . $centerHtml . $legendHtml,
+            'donut'
+        );
+    }
+
+    /**
      * @param array<string, mixed> $options
      */
     public function gauge(float|int|string $value, array $options = []): string
@@ -221,6 +346,111 @@ final class ChartSvgService
         $html .= '<text class="chart-axis-label" x="' . $this->number($centerX + $radius) . '" y="' . $this->number($centerY + 28) . '" text-anchor="middle">' . HelperFramework::escape($this->formatValue($max)) . '</text>';
 
         return $this->svg($width, $height, (string)($options['title'] ?? 'Gauge'), $html, 'gauge');
+    }
+
+    /**
+     * @param array<int, array{id?: string, label?: string, column?: int|string, color?: string}> $nodesInput
+     * @param array<int, array{source?: string, target?: string, value?: int|float|string, color?: string}> $linksInput
+     * @param array<string, mixed> $options
+     */
+    public function sankey(array $nodesInput, array $linksInput, array $options = []): string
+    {
+        $nodes = $this->normaliseSankeyNodes($nodesInput);
+        $links = $this->normaliseSankeyLinks($linksInput, $nodes);
+
+        if ($nodes === [] || $links === []) {
+            return $this->emptyChart('Sankey diagram', $options);
+        }
+
+        $width = $this->dimension($options, 'width', 760);
+        $height = $this->dimension($options, 'height', 360);
+        $padding = ['top' => 28.0, 'right' => 126.0, 'bottom' => 34.0, 'left' => 126.0];
+        $plotWidth = $width - $padding['left'] - $padding['right'];
+        $plotHeight = $height - $padding['top'] - $padding['bottom'];
+        $nodeWidth = 18.0;
+        $nodeGap = 18.0;
+        $nodeValues = $this->sankeyNodeValues($nodes, $links);
+        $columns = $this->sankeyColumns($nodes);
+        $scale = $this->sankeyScale($columns, $nodeValues, $plotHeight, $nodeGap);
+        $maxColumn = max(array_keys($columns));
+        $columnStep = $maxColumn > 0 ? ($plotWidth - $nodeWidth) / $maxColumn : 0.0;
+        $layout = [];
+
+        foreach ($columns as $column => $nodeIds) {
+            $columnHeight = 0.0;
+            foreach ($nodeIds as $nodeId) {
+                $columnHeight += max(8.0, $nodeValues[$nodeId] * $scale);
+            }
+            $columnHeight += max(0, count($nodeIds) - 1) * $nodeGap;
+
+            $y = $padding['top'] + max(0.0, ($plotHeight - $columnHeight) / 2);
+            foreach ($nodeIds as $nodeId) {
+                $nodeHeight = max(8.0, $nodeValues[$nodeId] * $scale);
+                $layout[$nodeId] = [
+                    'x' => $padding['left'] + ($columnStep * $column),
+                    'y' => $y,
+                    'height' => $nodeHeight,
+                    'width' => $nodeWidth,
+                ];
+                $y += $nodeHeight + $nodeGap;
+            }
+        }
+
+        $incomingOffsets = array_fill_keys(array_keys($nodes), 0.0);
+        $outgoingOffsets = array_fill_keys(array_keys($nodes), 0.0);
+        $linksHtml = '';
+        $nodesHtml = '';
+        $labelHtml = '';
+
+        foreach ($links as $index => $link) {
+            $source = $link['source'];
+            $target = $link['target'];
+            $thickness = max(2.0, $link['value'] * $scale);
+            $sourceLayout = $layout[$source];
+            $targetLayout = $layout[$target];
+            $sourceX = $sourceLayout['x'] + $nodeWidth;
+            $sourceY = $sourceLayout['y'] + $outgoingOffsets[$source] + ($thickness / 2);
+            $targetX = $targetLayout['x'];
+            $targetY = $targetLayout['y'] + $incomingOffsets[$target] + ($thickness / 2);
+            $controlOffset = max(40.0, abs($targetX - $sourceX) * 0.5);
+            $color = trim((string)($link['color'] ?? $nodes[$source]['color'] ?? self::DEFAULT_COLORS[$index % count(self::DEFAULT_COLORS)]));
+            $path = 'M ' . $this->number($sourceX) . ' ' . $this->number($sourceY)
+                . ' C ' . $this->number($sourceX + $controlOffset) . ' ' . $this->number($sourceY)
+                . ', ' . $this->number($targetX - $controlOffset) . ' ' . $this->number($targetY)
+                . ', ' . $this->number($targetX) . ' ' . $this->number($targetY);
+
+            $linksHtml .= '<path class="chart-sankey-link" d="' . HelperFramework::escape($path) . '" stroke="' . HelperFramework::escape($color) . '" stroke-width="' . $this->number($thickness) . '">';
+            $linksHtml .= '<title>' . HelperFramework::escape($nodes[$source]['label'] . ' to ' . $nodes[$target]['label'] . ': ' . $this->formatSankeyValue($link['value'], $options)) . '</title>';
+            $linksHtml .= '</path>';
+
+            $outgoingOffsets[$source] += $thickness;
+            $incomingOffsets[$target] += $thickness;
+        }
+
+        foreach ($layout as $nodeId => $nodeLayout) {
+            $node = $nodes[$nodeId];
+            $column = (int)$node['column'];
+            $labelX = $column === 0 ? $nodeLayout['x'] - 10 : $nodeLayout['x'] + $nodeWidth + 10;
+            $labelAnchor = $column === 0 ? 'end' : 'start';
+            $labelY = $nodeLayout['y'] + ($nodeLayout['height'] / 2) - 2;
+            $valueY = $labelY + 15;
+
+            $nodesHtml .= '<rect class="chart-sankey-node" x="' . $this->number($nodeLayout['x']) . '" y="' . $this->number($nodeLayout['y']) . '" width="' . $this->number($nodeWidth) . '" height="' . $this->number($nodeLayout['height']) . '" fill="' . HelperFramework::escape($node['color']) . '">';
+            $nodesHtml .= '<title>' . HelperFramework::escape($node['label'] . ': ' . $this->formatSankeyValue($nodeValues[$nodeId], $options)) . '</title>';
+            $nodesHtml .= '</rect>';
+            $labelHtml .= '<text class="chart-sankey-label" x="' . $this->number($labelX) . '" y="' . $this->number($labelY) . '" text-anchor="' . $labelAnchor . '">' . HelperFramework::escape($node['label']) . '</text>';
+            $labelHtml .= '<text class="chart-sankey-value" x="' . $this->number($labelX) . '" y="' . $this->number($valueY) . '" text-anchor="' . $labelAnchor . '">' . HelperFramework::escape($this->formatSankeyValue($nodeValues[$nodeId], $options)) . '</text>';
+        }
+
+        $balanceHtml = $this->sankeyBalanceHtml($nodes, $links, $options, $width, $height);
+
+        return $this->svg(
+            $width,
+            $height,
+            (string)($options['title'] ?? 'Sankey diagram'),
+            $linksHtml . $nodesHtml . $labelHtml . $balanceHtml,
+            'sankey'
+        );
     }
 
     /**
@@ -302,6 +532,38 @@ final class ChartSvgService
 
         return [
             'bar' => $this->bar($monthly, ['title' => 'Monthly workload']),
+            'stacked_bar' => $this->stackedBar([
+                [
+                    'label' => 'Support',
+                    'color' => '#1d4ed8',
+                    'points' => [
+                        ['label' => 'Jan', 'value' => 16],
+                        ['label' => 'Feb', 'value' => 20],
+                        ['label' => 'Mar', 'value' => 18],
+                        ['label' => 'Apr', 'value' => 24],
+                    ],
+                ],
+                [
+                    'label' => 'Ops',
+                    'color' => '#16a34a',
+                    'points' => [
+                        ['label' => 'Jan', 'value' => 12],
+                        ['label' => 'Feb', 'value' => 15],
+                        ['label' => 'Mar', 'value' => 19],
+                        ['label' => 'Apr', 'value' => 22],
+                    ],
+                ],
+                [
+                    'label' => 'Security',
+                    'color' => '#d97706',
+                    'points' => [
+                        ['label' => 'Jan', 'value' => 8],
+                        ['label' => 'Feb', 'value' => 10],
+                        ['label' => 'Mar', 'value' => 13],
+                        ['label' => 'Apr', 'value' => 16],
+                    ],
+                ],
+            ], ['title' => 'Quarter workload by team']),
             'line' => $this->line($series, ['title' => 'Monthly trend by team']),
         ];
     }
@@ -317,10 +579,54 @@ final class ChartSvgService
                 ['label' => 'Review', 'value' => 22, 'color' => '#d97706'],
                 ['label' => 'Queued', 'value' => 32, 'color' => '#1d4ed8'],
             ], ['title' => 'Work status split']),
+            'donut' => $this->donut([
+                ['label' => 'Passed', 'value' => 127, 'color' => '#16a34a'],
+                ['label' => 'Failed', 'value' => 4, 'color' => '#dc2626'],
+                ['label' => 'Skipped', 'value' => 3, 'color' => '#64748b'],
+            ], [
+                'title' => 'Test result donut',
+                'center_label' => '134',
+                'center_sub_label' => 'Tests',
+            ]),
             'gauge' => $this->gauge(72, [
                 'title' => 'Service health gauge',
                 'label' => 'Health',
                 'color' => '#16a34a',
+            ]),
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function demoFlowCharts(): array
+    {
+        $nodes = [
+            ['id' => 'cash_sales', 'label' => 'Cash sales', 'column' => 0, 'color' => '#1d4ed8'],
+            ['id' => 'online_sales', 'label' => 'Online sales', 'column' => 0, 'color' => '#0891b2'],
+            ['id' => 'donations', 'label' => 'Donations', 'column' => 0, 'color' => '#7c3aed'],
+            ['id' => 'total_value', 'label' => 'Total value', 'column' => 1, 'color' => '#475569'],
+            ['id' => 'overheads', 'label' => 'Overheads', 'column' => 2, 'color' => '#dc2626'],
+            ['id' => 'food_purchases', 'label' => 'Materials', 'column' => 2, 'color' => '#d97706'],
+            ['id' => 'profit', 'label' => 'Profit', 'column' => 2, 'color' => '#16a34a'],
+            ['id' => 'support', 'label' => 'Support', 'column' => 2, 'color' => '#1d4ed8'],
+        ];
+
+        $links = [
+            ['source' => 'cash_sales', 'target' => 'total_value', 'value' => 4200],
+            ['source' => 'online_sales', 'target' => 'total_value', 'value' => 6800],
+            ['source' => 'donations', 'target' => 'total_value', 'value' => 1200],
+            ['source' => 'total_value', 'target' => 'overheads', 'value' => 3000, 'color' => '#dc2626'],
+            ['source' => 'total_value', 'target' => 'food_purchases', 'value' => 4600, 'color' => '#d97706'],
+            ['source' => 'total_value', 'target' => 'profit', 'value' => 3100, 'color' => '#16a34a'],
+            ['source' => 'total_value', 'target' => 'support', 'value' => 1500, 'color' => '#1d4ed8'],
+        ];
+
+        return [
+            'sankey' => $this->sankey($nodes, $links, [
+                'title' => 'Income and allocation Sankey',
+                'value_prefix' => '£',
+                'balance_node' => 'total_value',
             ]),
         ];
     }
@@ -360,22 +666,185 @@ final class ChartSvgService
     }
 
     /**
+     * @param array<int, array{id?: string, label?: string, column?: int|string, color?: string}> $nodesInput
+     * @return array<string, array{id: string, label: string, column: int, color: string}>
+     */
+    private function normaliseSankeyNodes(array $nodesInput): array
+    {
+        $nodes = [];
+
+        foreach ($nodesInput as $index => $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+
+            $id = trim((string)($node['id'] ?? ''));
+            if ($id === '') {
+                continue;
+            }
+
+            $label = trim((string)($node['label'] ?? $id));
+            $column = max(0, (int)($node['column'] ?? 0));
+            $color = trim((string)($node['color'] ?? self::DEFAULT_COLORS[$index % count(self::DEFAULT_COLORS)]));
+
+            $nodes[$id] = [
+                'id' => $id,
+                'label' => $label !== '' ? $label : $id,
+                'column' => $column,
+                'color' => $color !== '' ? $color : self::DEFAULT_COLORS[$index % count(self::DEFAULT_COLORS)],
+            ];
+        }
+
+        return $nodes;
+    }
+
+    /**
+     * @param array<int, array{source?: string, target?: string, value?: int|float|string, color?: string}> $linksInput
+     * @param array<string, array{id: string, label: string, column: int, color: string}> $nodes
+     * @return array<int, array{source: string, target: string, value: float, color?: string}>
+     */
+    private function normaliseSankeyLinks(array $linksInput, array $nodes): array
+    {
+        $links = [];
+
+        foreach ($linksInput as $link) {
+            if (!is_array($link)) {
+                continue;
+            }
+
+            $source = trim((string)($link['source'] ?? ''));
+            $target = trim((string)($link['target'] ?? ''));
+            $value = (float)($link['value'] ?? 0);
+
+            if ($source === '' || $target === '' || !isset($nodes[$source], $nodes[$target]) || !is_finite($value) || $value <= 0) {
+                continue;
+            }
+
+            $item = [
+                'source' => $source,
+                'target' => $target,
+                'value' => $value,
+            ];
+
+            if (isset($link['color'])) {
+                $item['color'] = (string)$link['color'];
+            }
+
+            $links[] = $item;
+        }
+
+        return $links;
+    }
+
+    /**
+     * @param array<string, array{id: string, label: string, column: int, color: string}> $nodes
+     * @param array<int, array{source: string, target: string, value: float, color?: string}> $links
+     * @return array<string, float>
+     */
+    private function sankeyNodeValues(array $nodes, array $links): array
+    {
+        $incoming = array_fill_keys(array_keys($nodes), 0.0);
+        $outgoing = array_fill_keys(array_keys($nodes), 0.0);
+
+        foreach ($links as $link) {
+            $outgoing[$link['source']] += $link['value'];
+            $incoming[$link['target']] += $link['value'];
+        }
+
+        $values = [];
+        foreach (array_keys($nodes) as $nodeId) {
+            $values[$nodeId] = max(1.0, $incoming[$nodeId], $outgoing[$nodeId]);
+        }
+
+        return $values;
+    }
+
+    /**
+     * @param array<string, array{id: string, label: string, column: int, color: string}> $nodes
+     * @return array<int, array<int, string>>
+     */
+    private function sankeyColumns(array $nodes): array
+    {
+        $columns = [];
+
+        foreach ($nodes as $nodeId => $node) {
+            $columns[(int)$node['column']][] = $nodeId;
+        }
+
+        ksort($columns);
+
+        return $columns;
+    }
+
+    /**
+     * @param array<int, array<int, string>> $columns
+     * @param array<string, float> $nodeValues
+     */
+    private function sankeyScale(array $columns, array $nodeValues, float $plotHeight, float $nodeGap): float
+    {
+        $scale = null;
+
+        foreach ($columns as $nodeIds) {
+            $availableHeight = max(1.0, $plotHeight - (max(0, count($nodeIds) - 1) * $nodeGap));
+            $totalValue = 0.0;
+
+            foreach ($nodeIds as $nodeId) {
+                $totalValue += $nodeValues[$nodeId] ?? 0.0;
+            }
+
+            if ($totalValue <= 0) {
+                continue;
+            }
+
+            $columnScale = $availableHeight / $totalValue;
+            $scale = $scale === null ? $columnScale : min($scale, $columnScale);
+        }
+
+        return max(0.001, (float)($scale ?? 1.0));
+    }
+
+    /**
+     * @param array<string, array{id: string, label: string, column: int, color: string}> $nodes
+     * @param array<int, array{source: string, target: string, value: float, color?: string}> $links
+     * @param array<string, mixed> $options
+     */
+    private function sankeyBalanceHtml(array $nodes, array $links, array $options, int $width, int $height): string
+    {
+        $balanceNode = trim((string)($options['balance_node'] ?? ''));
+        if ($balanceNode === '' || !isset($nodes[$balanceNode])) {
+            return '';
+        }
+
+        $incoming = 0.0;
+        $outgoing = 0.0;
+
+        foreach ($links as $link) {
+            if ($link['target'] === $balanceNode) {
+                $incoming += $link['value'];
+            }
+
+            if ($link['source'] === $balanceNode) {
+                $outgoing += $link['value'];
+            }
+        }
+
+        $difference = $incoming - $outgoing;
+        $class = abs($difference) < 0.001 ? ' balanced' : ' unbalanced';
+        $message = abs($difference) < 0.001
+            ? 'Balanced flow'
+            : 'Difference ' . $this->formatSankeyValue($difference, $options);
+
+        return '<text class="chart-sankey-balance' . $class . '" x="' . $this->number($width / 2) . '" y="' . $this->number($height - 12) . '" text-anchor="middle">' . HelperFramework::escape($message) . '</text>';
+    }
+
+    /**
      * @param array<int, array{label?: string, value?: int|float|string, color?: string, points?: array<int, array{label?: string, value?: int|float|string, color?: string}>}> $seriesInput
      * @param array<string, mixed> $options
      * @return array<int, array{label: string, color: string, points: array<int, array{label: string, value: float, color?: string}>}>
      */
     private function normaliseLineSeries(array $seriesInput, array $options): array
     {
-        $hasSeriesShape = false;
-
-        foreach ($seriesInput as $item) {
-            if (is_array($item) && array_key_exists('points', $item)) {
-                $hasSeriesShape = true;
-                break;
-            }
-        }
-
-        if (!$hasSeriesShape) {
+        if (!$this->hasSeriesShape($seriesInput)) {
             $points = $this->normalisePoints($seriesInput);
 
             return $points === []
@@ -387,6 +856,29 @@ final class ChartSvgService
                 ]];
         }
 
+        return array_values(array_filter(
+            $this->normaliseSeries($seriesInput, 5),
+            static fn(array $series): bool => count($series['points']) >= 2
+        ));
+    }
+
+    private function hasSeriesShape(array $seriesInput): bool
+    {
+        foreach ($seriesInput as $item) {
+            if (is_array($item) && array_key_exists('points', $item)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<int, array{label?: string, color?: string, points?: array<int, array{label?: string, value?: int|float|string, color?: string}>}> $seriesInput
+     * @return array<int, array{label: string, color: string, points: array<int, array{label: string, value: float, color?: string}>}>
+     */
+    private function normaliseSeries(array $seriesInput, int $limit): array
+    {
         $series = [];
 
         foreach ($seriesInput as $index => $item) {
@@ -395,7 +887,7 @@ final class ChartSvgService
             }
 
             $points = $this->normalisePoints((array)($item['points'] ?? []));
-            if (count($points) < 2) {
+            if (count($points) < 1) {
                 continue;
             }
 
@@ -409,7 +901,26 @@ final class ChartSvgService
             ];
         }
 
-        return array_slice($series, 0, 5);
+        return array_slice($series, 0, max(1, $limit));
+    }
+
+    /**
+     * @param array<int, array{label: string, color: string, points: array<int, array{label: string, value: float, color?: string}>}> $series
+     * @return array<int, string>
+     */
+    private function seriesLabels(array $series): array
+    {
+        $labels = [];
+
+        foreach ($series as $item) {
+            foreach ($item['points'] as $index => $point) {
+                if (!isset($labels[$index])) {
+                    $labels[$index] = $point['label'];
+                }
+            }
+        }
+
+        return array_values($labels);
     }
 
     /**
@@ -497,6 +1008,21 @@ final class ChartSvgService
         return abs($value - round($value)) < 0.001
             ? (string)(int)round($value)
             : number_format($value, 1);
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     */
+    private function formatSankeyValue(float|int $value, array $options): string
+    {
+        $prefix = (string)($options['value_prefix'] ?? '');
+        $suffix = (string)($options['value_suffix'] ?? '');
+        $absolute = abs((float)$value);
+        $formatted = $absolute >= 1000
+            ? number_format($absolute, 0)
+            : $this->formatValue($absolute);
+
+        return ((float)$value < 0 ? '-' : '') . $prefix . $formatted . $suffix;
     }
 
     private function svg(int $width, int $height, string $title, string $content, string $type): string

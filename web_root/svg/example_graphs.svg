@@ -1,0 +1,19 @@
+<!--
+  eelKit Framework
+  Copyright (c) 2026 James Elstone
+  Licensed under the BSD 3-Clause License
+  See LICENSE file for details.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M4 19h16"/>
+  <path d="M5 16v-4"/>
+  <path d="M9 16V8"/>
+  <path d="M13 16v-6"/>
+  <path d="M17 16V5"/>
+  <path d="M5 12l4 -4l4 2l4 -5"/>
+  <circle cx="5" cy="12" r="1"/>
+  <circle cx="9" cy="8" r="1"/>
+  <circle cx="13" cy="10" r="1"/>
+  <circle cx="17" cy="5" r="1"/>
+</svg>

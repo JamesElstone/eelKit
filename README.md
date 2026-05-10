@@ -14,6 +14,7 @@ The project is deliberately simple: no package manager is required for the curre
 - User login history and account audit tables.
 - Centralised request, response, page, card, action, configuration, and database helper classes.
 - Lightweight AJAX refresh model for cards and flash messages.
+- Built-in SVG chart rendering for common dashboard and reporting graphs, without external chart libraries.
 - Built-in developer test runner with broad class coverage.
 
 ## Requirements
@@ -30,6 +31,7 @@ The project is deliberately simple: no package manager is required for the curre
 - `web_root/content/pages` - page definitions.
 - `web_root/content/cards` - card definitions rendered inside pages.
 - `web_root/content/actions` - shared card action handlers.
+- `web_root/classes/service/ChartSvgService.php` - internal SVG chart renderer.
 - `secure/app.php` - application configuration, hydrated automatically on first run.
 - `db_schema/eelKit.schema.sql` - full database schema for a new install.
 - `tools/reset_password.php` - A CLI password reset helper.
@@ -126,6 +128,22 @@ For existing databases that already match the original baseline, insert the base
 INSERT INTO schema_migrations (migration)
 VALUES ('2026_05_07_001_initial_schema.sql');
 ```
+
+## SVG Graph Support
+
+eelKit includes an internal SVG chart service, `ChartSvgService`, for rendering graphs directly from PHP card output without external JavaScript charting libraries.
+
+Current graph types:
+
+- Bar graph.
+- Stacked bar graph with multiple series.
+- Line graph with support for up to five series.
+- Pie chart.
+- Donut chart.
+- Gauge.
+- Sankey diagram for value flows, such as income sources flowing into total value and then into allocations.
+
+The `Example Graphs` page demonstrates the available graph cards and can be used as a reference for adding chart output to application-specific cards.
 
 ## Running Tests
 

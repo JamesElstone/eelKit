@@ -1358,6 +1358,14 @@ tbody tr:last-child td {
   font-size: 0.95rem;
 }
 
+.chart-demo-grid-wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.chart-panel-wide {
+  grid-column: 1 / -1;
+}
+
 .chart {
   display: block;
   width: 100%;
@@ -1409,6 +1417,24 @@ tbody tr:last-child td {
   stroke-width: 2;
 }
 
+.chart-donut-segment {
+  stroke-linecap: butt;
+}
+
+.chart-donut-number {
+  fill: var(--text);
+  font-family: Roboto, monospace;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.chart-donut-label {
+  fill: var(--muted);
+  font-family: Inter, Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .chart-legend-swatch {
   rx: 3;
   ry: 3;
@@ -1433,6 +1459,45 @@ tbody tr:last-child td {
 .chart-gauge-number {
   font-family: Roboto, monospace;
   font-size: 42px;
+}
+
+.chart-sankey-link {
+  fill: none;
+  opacity: 0.32;
+  stroke-linecap: butt;
+}
+
+.chart-sankey-node {
+  rx: 4;
+  ry: 4;
+}
+
+.chart-sankey-label,
+.chart-sankey-value,
+.chart-sankey-balance {
+  font-family: Inter, Arial, Helvetica, sans-serif;
+}
+
+.chart-sankey-label {
+  fill: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chart-sankey-value {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chart-sankey-balance {
+  fill: var(--success);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chart-sankey-balance.unbalanced {
+  fill: var(--warning);
 }
 
 .chart-empty-box {
