@@ -43,6 +43,11 @@ abstract class CardBaseFramework implements CardInterfaceFramework
         return [];
     }
 
+    public function tables(array $context): array
+    {
+        return [];
+    }
+
     public function invalidationFacts(): array
     {
         $facts = [$this->defaultInvalidationFact()];

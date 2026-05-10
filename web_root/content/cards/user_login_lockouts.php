@@ -25,6 +25,11 @@ final class _user_login_lockoutsCard extends CardBaseFramework
         ];
     }
 
+    public function helper(array $context): string
+    {
+        return 'Active login lockouts caused by repeated failed password attempts.';
+    }
+
     protected function additionalInvalidationFacts(): array
     {
         return [];
@@ -37,61 +42,70 @@ final class _user_login_lockoutsCard extends CardBaseFramework
 
     public function render(array $context): string
     {
-        $dashboard = (array)(($context['services'] ?? [])['login_lockouts_dashboard'] ?? []);
-        $lockedUsers = (array)($dashboard['locked_users'] ?? []);
-        $csrfToken = (string)($context['page']['csrf_token'] ?? '');
-        $rowsHtml = '';
+        return $this->table($context)->render($context, [
+            'cards[]' => (array)($context['page']['page_cards'] ?? []),
+        ]);
+    }
 
-        foreach ($lockedUsers as $lockedUser) {
-            $userId = max(0, (int)($lockedUser['user_id'] ?? 0));
+    public function tables(array $context): array
+    {
+        return [$this->table($context)];
+    }
+
+    private function table(array $context): TableFramework
+    {
+        return TableFramework::make($this->key(), $this->rows($context))
+            ->filename('user-login-lockouts')
+            ->exportLimit(200)
+            ->empty('No users are currently locked out.')
+            ->textColumn('display_name', 'User')
+            ->textColumn('email_address', 'Email')
+            ->textColumn('consecutive_failed_password_attempts', 'Attempts', fallback: '0', exportType: 'number')
+            ->textColumn('locked_scopes_label', 'Scope')
+            ->textColumn('lock_reasons_label', 'Reason')
+            ->textColumn('lock_expires_at', 'Expires')
+            ->column(
+                'action',
+                'Action',
+                html: fn(array $row): string => $this->resetButtonHtml($context, max(0, (int)($row['user_id'] ?? 0))),
+                exportable: false,
+                cellClass: 'cell-fit'
+            );
+    }
+
+    private function rows(array $context): array
+    {
+        $dashboard = (array)(($context['services'] ?? [])['login_lockouts_dashboard'] ?? []);
+        $rows = [];
+
+        foreach ((array)($dashboard['locked_users'] ?? []) as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $userId = max(0, (int)($row['user_id'] ?? 0));
             if ($userId <= 0) {
                 continue;
             }
 
-            $scopes = $this->scopeLabels((string)($lockedUser['locked_scopes'] ?? ''));
-            $reasons = $this->reasonLabels((string)($lockedUser['lock_reasons'] ?? ''));
-            $rowsHtml .= '<tr>
-                <td>' . HelperFramework::escape((string)($lockedUser['display_name'] ?? '')) . '</td>
-                <td>' . HelperFramework::escape((string)($lockedUser['email_address'] ?? '')) . '</td>
-                <td>' . HelperFramework::escape((string)($lockedUser['consecutive_failed_password_attempts'] ?? '0')) . '</td>
-                <td>' . HelperFramework::escape($scopes) . '</td>
-                <td>' . HelperFramework::escape($reasons) . '</td>
-                <td>' . HelperFramework::escape((string)($lockedUser['lock_expires_at'] ?? '')) . '</td>
-                <td>' . $this->resetButtonHtml($context, $userId, $csrfToken) . '</td>
-            </tr>';
+            $row['locked_scopes_label'] = $this->scopeLabels((string)($row['locked_scopes'] ?? ''));
+            $row['lock_reasons_label'] = $this->reasonLabels((string)($row['lock_reasons'] ?? ''));
+            $rows[] = $row;
         }
 
-        if ($rowsHtml === '') {
-            $rowsHtml = '<tr><td colspan="7">No users are currently locked out.</td></tr>';
-        }
-
-        return '
-            <p class="helper">Active login lockouts caused by repeated failed password attempts.</p>
-            <div class="table-scroll">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>User</th>
-                            <th>Email</th>
-                            <th>Attempts</th>
-                            <th>Scope</th>
-                            <th>Reason</th>
-                            <th>Expires</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>' . $rowsHtml . '</tbody>
-                </table>
-            </div>
-        ';
+        return $rows;
     }
 
-    private function resetButtonHtml(array $context, int $userId, string $csrfToken): string
+    private function resetButtonHtml(array $context, int $userId): string
     {
+        if ($userId <= 0) {
+            return '';
+        }
+
         return '<form method="post" action="?page=users" data-ajax="true">
             ' . $this->hiddenFields($context) . '
             <input type="hidden" name="action" value="users-reset-login-lockout">
-            <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
+            <input type="hidden" name="csrf_token" value="' . HelperFramework::escape((string)($context['page']['csrf_token'] ?? '')) . '">
             <input type="hidden" name="target_user_id" value="' . HelperFramework::escape((string)$userId) . '">
             <button class="button primary" type="submit">Reset Lockout</button>
         </form>';

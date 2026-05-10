@@ -29,6 +29,40 @@ final class ResponseFramework
         return new self($statusCode, 'application/json; charset=utf-8', $json, self::defaultHeaders());
     }
 
+    public static function download(string $body, string $filename, string $contentType): self
+    {
+        $filename = preg_replace('/[^A-Za-z0-9._-]+/', '-', trim($filename)) ?? 'download';
+        $filename = trim($filename, '.-') !== '' ? trim($filename, '.-') : 'download';
+
+        return new self(200, $contentType, $body, array_merge(self::defaultHeaders(), [
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Length' => (string)strlen($body),
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+        ]));
+    }
+
+    public function body(): string
+    {
+        return $this->body;
+    }
+
+    public function contentType(): string
+    {
+        return $this->contentType;
+    }
+
+    public function headerValue(string $name): ?string
+    {
+        foreach ($this->headers as $header => $value) {
+            if (strcasecmp($header, $name) === 0) {
+                return (string)$value;
+            }
+        }
+
+        return null;
+    }
+
     public function send(): void
     {
         http_response_code($this->statusCode);

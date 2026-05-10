@@ -14,6 +14,38 @@ $harness->check(AppConfigurationStore::class, 'loads configuration from the test
     $harness->assertSame('eelKit Framework Test', AppConfigurationStore::get('app_name'));
     $harness->assertSame('T', AppConfigurationStore::get('brand-mark'));
     $harness->assertSame('Test strapline', AppConfigurationStore::get('app_strapline'));
+    $harness->assertSame('Test strapline', AppConfigurationStore::appStrapline());
+});
+
+$harness->check(AppConfigurationStore::class, 'centralises the default application strapline', function () use ($harness): void {
+    $method = new ReflectionMethod(AppConfigurationStore::class, 'defaults');
+    $defaults = $method->invoke(null);
+
+    $harness->assertSame('Bookkeeping without the fog and panic', $defaults['app_strapline'] ?? null);
+});
+
+$harness->check(AppConfigurationStore::class, 'falls back to the default application strapline when configured blank', function () use ($harness): void {
+    $path = AppConfigurationStore::configPath();
+    $original = file_get_contents($path);
+
+    if (!is_string($original)) {
+        throw new RuntimeException('Unable to read fixture config.');
+    }
+
+    try {
+        $config = require $path;
+        if (!is_array($config)) {
+            throw new RuntimeException('Fixture config did not return an array.');
+        }
+
+        $config['app_strapline'] = '   ';
+        file_put_contents($path, "<?php\nreturn " . var_export($config, true) . ";\n", LOCK_EX);
+
+        $harness->assertSame('Bookkeeping without the fog and panic', AppConfigurationStore::appStrapline(true));
+    } finally {
+        file_put_contents($path, $original, LOCK_EX);
+        AppConfigurationStore::config(true);
+    }
 });
 
 $harness->check(AppConfigurationStore::class, 'exposes the active application config file path', function () use ($harness): void {
@@ -42,6 +74,55 @@ $harness->check(AppConfigurationStore::class, 'updates database connection setti
         $harness->assertSame('odbc:test_dsn', $updated['db']['dsn'] ?? null);
         $harness->assertSame('test_user', $updated['db']['user'] ?? null);
         $harness->assertSame('test_password', $updated['db']['pass'] ?? null);
+        $harness->assertSame('../db_schema/eelKit.schema.sql', $updated['db']['sqlite_schema'] ?? null);
+    } finally {
+        file_put_contents($path, $original, LOCK_EX);
+        AppConfigurationStore::config(true);
+    }
+});
+
+$harness->check(AppConfigurationStore::class, 'updates editable application settings without dropping other config', function () use ($harness): void {
+    $path = AppConfigurationStore::configPath();
+    $original = file_get_contents($path);
+
+    if (!is_string($original)) {
+        throw new RuntimeException('Unable to read fixture config.');
+    }
+
+    try {
+        $updated = AppConfigurationStore::setEditableApplicationSettings([
+            'app_name' => 'Updated Settings Test',
+            'app_strapline' => 'Updated strapline',
+            'brand-mark' => 'US',
+            'developer_options' => false,
+            'navigation' => [
+                'default_order' => [
+                    'dashboard' => 10,
+                    'settings' => 920,
+                ],
+                'developer_only_pages' => [
+                    'test',
+                ],
+            ],
+            'antifraud' => [
+                'vendor_license_ids' => 'license-1',
+                'vendor_product_name' => 'eelKit',
+                'vendor_public_ip' => '203.0.113.10',
+                'vendor_version' => 'test-version',
+            ],
+            'session' => [
+                'cookie_secure' => 'true',
+                'cookie_samesite' => 'Lax',
+            ],
+        ]);
+
+        $harness->assertSame('Updated Settings Test', $updated['app_name'] ?? null);
+        $harness->assertSame('US', $updated['brand-mark'] ?? null);
+        $harness->assertSame(false, $updated['developer_options'] ?? null);
+        $harness->assertSame(920, $updated['navigation']['default_order']['settings'] ?? null);
+        $harness->assertSame('test', $updated['navigation']['developer_only_pages'][0] ?? null);
+        $harness->assertSame('203.0.113.10', $updated['antifraud']['vendor_public_ip'] ?? null);
+        $harness->assertSame('true', $updated['session']['cookie_secure'] ?? null);
         $harness->assertSame('../db_schema/eelKit.schema.sql', $updated['db']['sqlite_schema'] ?? null);
     } finally {
         file_put_contents($path, $original, LOCK_EX);

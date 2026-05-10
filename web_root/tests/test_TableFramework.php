@@ -1,0 +1,163 @@
+<?php
+/**
+ * eelKit Framework
+ * Copyright (c) 2026 James Elstone
+ * Licensed under the BSD 3-Clause License
+ * See LICENSE file for details.
+ */
+declare(strict_types=1);
+
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'testFramework' . DIRECTORY_SEPARATOR . 'ServiceClassTestHarness.php';
+
+$harness = new GeneratedServiceClassTestHarness();
+
+$rows = [
+    ['name' => 'Alpha', 'status' => 'ready', 'amount' => 12.5],
+    ['name' => 'Beta', 'status' => 'review', 'amount' => 25],
+    ['name' => 'Gamma', 'status' => 'complete', 'amount' => 31.75],
+];
+
+$harness->check(TableFramework::class, 'renders visible rows with toolbar export and pagination controls', function () use ($harness, $rows): void {
+    $pagination = HelperFramework::paginateArray($rows, 1, 2);
+    $table = TableFramework::make('demo_table', $rows)
+        ->filename('demo-table')
+        ->column('name', 'Name')
+        ->column(
+            'status',
+            'Status',
+            html: static fn(array $row): string => '<span class="badge info">' . HelperFramework::escape((string)$row['status']) . '</span>',
+            export: static fn(array $row): string => strtoupper((string)$row['status'])
+        )
+        ->column('amount', 'Amount', exportType: 'number')
+        ->visibleRows((array)$pagination['items'])
+        ->pagination($pagination, 'Demo rows', 'demo_table_page', [
+            'page' => 'test',
+            '_pagination' => '1',
+            '_invalidate_fact' => 'demo.table',
+            'cards[]' => ['demo_table'],
+        ])
+        ->filterSelect(
+            'demo_status',
+            'Status',
+            ['all' => 'All statuses', 'ready' => 'Ready'],
+            'ready',
+            [
+                'page' => 'test',
+                '_pagination' => '1',
+                '_invalidate_fact' => 'demo.table',
+                'cards[]' => ['demo_table'],
+            ]
+        );
+
+    $html = $table->render(['page' => ['page_id' => 'test']]);
+
+    $harness->assertTrue(str_contains($html, 'Demo rows 1-2 of 3'));
+    $harness->assertTrue(strpos($html, 'Demo rows 1-2 of 3') > strpos($html, '</table>'));
+    $harness->assertTrue(str_contains($html, '<label for="table-filter-demo_table-demo_status">Status</label>'));
+    $harness->assertTrue(str_contains($html, '<option value="ready" selected>Ready</option>'));
+    $harness->assertTrue(str_contains($html, 'method="post" data-ajax="true"'));
+    $harness->assertTrue(str_contains($html, 'name="_table_export_prepare" value="csv"'));
+    $harness->assertTrue(str_contains($html, 'name="_table_export_prepare" value="xlsx"'));
+    $harness->assertTrue(strpos($html, 'name="_table_export_prepare" value="csv"') < strpos($html, '<table'));
+    $harness->assertTrue(str_contains($html, 'name="demo_table_page" value="2"'));
+    $harness->assertTrue(str_contains($html, 'name="_invalidate_fact" value="demo.table"'));
+    $harness->assertTrue(str_contains($html, 'name="cards[]" value="demo_table"'));
+    $harness->assertTrue(str_contains($html, '&lt; Prev'));
+    $harness->assertTrue(str_contains($html, 'Next &gt;'));
+    $harness->assertTrue(str_contains($html, '<span class="badge info">ready</span>'));
+    $harness->assertSame(false, str_contains($html, '>Gamma<'));
+});
+
+$harness->check(TableFramework::class, 'exports unpaginated rows and export-specific values to CSV', function () use ($harness, $rows): void {
+    $table = TableFramework::make('demo_table', $rows)
+        ->column('name', 'Name')
+        ->column(
+            'status',
+            'Status',
+            html: static fn(array $row): string => '<span>' . HelperFramework::escape((string)$row['status']) . '</span>',
+            export: static fn(array $row): string => strtoupper((string)$row['status'])
+        )
+        ->column('amount', 'Amount')
+        ->column('action', 'Action', html: static fn(): string => '<button>Ignore</button>', exportable: false)
+        ->visibleRows([$rows[0]]);
+
+    $csv = $table->exportCsv();
+
+    $harness->assertTrue(str_contains($csv, "Name,Status,Amount\n"));
+    $harness->assertTrue(str_contains($csv, "Alpha,READY,12.5\n"));
+    $harness->assertTrue(str_contains($csv, "Gamma,COMPLETE,31.75"));
+    $harness->assertSame(false, str_contains($csv, 'Action'));
+    $harness->assertSame(false, str_contains($csv, 'Ignore'));
+});
+
+$harness->check(TableFramework::class, 'exports XLSX with all rows', function () use ($harness, $rows): void {
+    $table = TableFramework::make('demo_table', $rows)
+        ->filename('demo-table')
+        ->column('name', 'Name')
+        ->column('status', 'Status')
+        ->visibleRows([$rows[0]]);
+
+    $xlsx = $table->exportXlsx();
+
+    $harness->assertSame('PK', substr($xlsx, 0, 2));
+    $harness->assertTrue(str_contains($xlsx, '[Content_Types].xml'));
+    $harness->assertTrue(str_contains($xlsx, 'xl/worksheets/sheet1.xml'));
+
+    $download = $table->downloadResponse('xlsx');
+    $harness->assertSame(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        $download->contentType()
+    );
+    $harness->assertTrue(str_starts_with((string)$download->headerValue('Content-Disposition'), 'attachment; filename="demo-table_'));
+    $harness->assertTrue(str_ends_with((string)$download->headerValue('Content-Disposition'), '.xlsx"'));
+});
+
+$harness->check(TableFramework::class, 'honours configured export formats and export row limits', function () use ($harness, $rows): void {
+    $table = TableFramework::make('demo_table', $rows)
+        ->filename('demo-table')
+        ->exportFormats(['csv' => 'Comma'])
+        ->exportLimit(2)
+        ->column('name', 'Name');
+
+    $html = $table->render(['page' => ['page_id' => 'test']]);
+    $csv = $table->exportCsv();
+
+    $harness->assertTrue(str_contains($html, '>Comma</button>'));
+    $harness->assertSame(false, str_contains($html, 'XLSX'));
+    $harness->assertTrue(str_contains($csv, "Beta\n"));
+    $harness->assertSame(false, str_contains($csv, 'Gamma'));
+});
+
+$harness->check(TableFramework::class, 'renders convenience column formats with export-safe values', function () use ($harness): void {
+    $rows = [[
+        'actor' => '',
+        'action_type' => 'password_reset',
+        'reason' => 'Admin request',
+        'details_json' => '{"forced_password_change":true,"attempts":2,"nested":{"ignored":true}}',
+        'ip_address' => '127.0.0.1',
+        'user_agent' => str_repeat('Browser ', 20),
+    ]];
+
+    $table = TableFramework::make('demo_table', $rows)
+        ->textColumn('actor', 'Actor', fallback: 'System')
+        ->badgeColumn('action_type', 'Action', badgeClass: 'info', labelSeparator: '_')
+        ->textWithJsonSummaryColumn('reason', 'Reason', 'details_json')
+        ->primarySecondaryColumn(
+            'ip_address',
+            'IP / User Agent',
+            secondaryKey: 'user_agent',
+            secondaryPreviewLength: 24,
+            secondaryPreviewClass: 'log-agent-preview'
+        );
+
+    $html = $table->render(['page' => ['page_id' => 'test']]);
+    $csv = $table->exportCsv();
+
+    $harness->assertTrue(str_contains($html, '>System</td>'));
+    $harness->assertTrue(str_contains($html, '<span class="badge info">Password Reset</span>'));
+    $harness->assertTrue(str_contains($html, 'forced password change: true'));
+    $harness->assertTrue(str_contains($html, 'class="helper log-agent-preview"'));
+    $harness->assertTrue(str_contains($csv, 'System,"Password Reset"'));
+    $harness->assertTrue(str_contains($csv, 'Admin request | forced password change: true | attempts: 2'));
+    $harness->assertTrue(str_contains($csv, '127.0.0.1 | Browser Browser'));
+});

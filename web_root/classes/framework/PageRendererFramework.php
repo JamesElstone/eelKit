@@ -267,11 +267,7 @@ final class PageRendererFramework
         global $appName;
         $escapedAppName = HelperFramework::escape((string)($appName ?? 'eelKit Framework'));
         $escapedBrandMark = HelperFramework::escape($this->brandMark());
-        $appStrapline = trim((string)AppConfigurationStore::get('app_strapline', 'Bookkeeping without the fog and panic'));
-        if ($appStrapline === '') {
-            $appStrapline = 'Bookkeeping without the fog and panic';
-        }
-        $escapedAppStrapline = HelperFramework::escape($appStrapline);
+        $escapedAppStrapline = HelperFramework::escape(AppConfigurationStore::appStrapline());
 
         $html = '<aside id="sidebar-shell" class="sidebar">
         <div class="brand-block">

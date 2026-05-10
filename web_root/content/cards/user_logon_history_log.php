@@ -36,6 +36,11 @@ final class _user_logon_history_logCard extends CardBaseFramework
         ];
     }
 
+    public function helper(array $context): string
+    {
+        return 'Recent login, logout, OTP, and session events captured for user accounts.';
+    }
+
     public function handle(
         RequestFramework $request,
         PageServiceFramework $services,
@@ -63,95 +68,109 @@ final class _user_logon_history_logCard extends CardBaseFramework
 
     public function render(array $context): string
     {
-        $rows = (array)(($context['services'] ?? [])['logon_rows'] ?? []);
-        $users = (array)(($context['services'] ?? [])['users'] ?? []);
-        $selectedUserId = max(0, (int)($context[$this->key()]['selected_user_id'] ?? 0));
-        $pagination = HelperFramework::paginateArray(
-            $rows,
-            $this->paginationPage($context),
-            self::PAGE_SIZE
-        );
-        $rows = (array)$pagination['items'];
-        $tableRows = '';
-
-        foreach ($rows as $row) {
-            $eventType = HelperFramework::labelFromKey((string)($row['event_type'] ?? ''), '_');
-            $badgeClass = (int)($row['success'] ?? 0) === 1 ? 'success' : 'danger';
-            $principal = trim((string)($row['user_display_name'] ?? ''));
-
-            if ($principal === '') {
-                $principal = trim((string)($row['attempted_email_address'] ?? ''));
-            }
-
-            if ($principal === '') {
-                $principal = 'Unknown user';
-            }
-
-            $agentDetails = trim((string)($row['browser_label'] ?? ''));
-            $userAgent = trim((string)($row['user_agent'] ?? ''));
-            if ($agentDetails === '') {
-                $agentDetails = 'Unknown browser';
-            }
-            if ($userAgent !== '') {
-                $agentDetails .= '<div class="helper">' . HelperFramework::escape($userAgent) . '</div>';
-            }
-
-            $reason = trim((string)($row['reason'] ?? ''));
-            if ($reason === '') {
-                $reason = '&nbsp;';
-            } else {
-                $reason = HelperFramework::escape($reason);
-            }
-
-            $tableRows .= '<tr>
-                <td>' . HelperFramework::escape((string)($row['occurred_at'] ?? '')) . '</td>
-                <td>' . HelperFramework::escape($principal) . '</td>
-                <td><span class="badge ' . $badgeClass . '">' . HelperFramework::escape($eventType) . '</span></td>
-                <td>' . HelperFramework::escape((string)($row['ip_address'] ?? '')) . '</td>
-                <td>' . $agentDetails . '</td>
-                <td>' . $reason . '</td>
-            </tr>';
-        }
-
-        if ($tableRows === '') {
-            $tableRows = '<tr><td colspan="6">No user logon history has been recorded yet.</td></tr>';
-        }
-
-        return '
-            <p class="helper">Recent login, logout, OTP, and session events captured for user accounts.</p>
-            ' . $this->filterControls($context, $users, $selectedUserId) . '
-            <div class="table-scroll">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>User</th>
-                            <th>Event</th>
-                            <th>IP</th>
-                            <th>Browser Agent Details</th>
-                            <th>Reason</th>
-                        </tr>
-                    </thead>
-                    <tbody>' . $tableRows . '</tbody>
-                </table>
-            </div>
-            ' . $this->paginationControls(
-                $context,
-                $pagination,
-                'User logon events',
-                null,
-                [
-                    'logon_history_user_id' => (string)$selectedUserId,
-                ]
-            ) . '
-        ';
+        return $this->configuredTable($context)->render($context, [
+            'cards[]' => (array)($context['page']['page_cards'] ?? []),
+            'logon_history_user_id' => (string)$this->selectedUserId($context),
+        ]);
     }
 
-    private function filterControls(array $context, array $users, int $selectedUserId): string
+    public function tables(array $context): array
     {
-        $optionsHtml = '<option value="0"' . ($selectedUserId === 0 ? ' selected' : '') . '>All users</option>';
+        return [$this->table($context)];
+    }
 
-        foreach ($users as $user) {
+    private function configuredTable(array $context): TableFramework
+    {
+        $selectedUserId = $this->selectedUserId($context);
+        $pagination = HelperFramework::paginateArray($this->rows($context), $this->paginationPage($context), self::PAGE_SIZE);
+
+        return $this->table($context)
+            ->visibleRows((array)$pagination['items'])
+            ->pagination(
+                $pagination,
+                'User logon events',
+                $this->paginationPageField(),
+                [
+                    'page' => (string)($context['page']['page_id'] ?? ''),
+                    '_pagination' => '1',
+                    '_invalidate_fact' => $this->tableInvalidationFact(),
+                    'cards[]' => [$this->key()],
+                    'logon_history_user_id' => (string)$selectedUserId,
+                ]
+            )
+            ->filterSelect(
+                'logon_history_user_id',
+                'User',
+                $this->userFilterOptions($context),
+                (string)$selectedUserId,
+                [
+                    'page' => (string)($context['page']['page_id'] ?? ''),
+                    '_pagination' => '1',
+                    '_invalidate_fact' => $this->tableInvalidationFact(),
+                    'cards[]' => [$this->key()],
+                ]
+            );
+    }
+
+    private function table(array $context): TableFramework
+    {
+        return TableFramework::make($this->key(), $this->rows($context))
+            ->filename('user-logon-history-log')
+            ->exportLimit(200)
+            ->empty('No user logon history has been recorded yet.')
+            ->textColumn('occurred_at', 'Time')
+            ->textColumn('principal', 'User', fallback: 'Unknown user')
+            ->badgeColumn(
+                'event_type',
+                'Event',
+                labelSeparator: '_',
+                badgeClassFormatter: static fn(array $row): string => (int)($row['success'] ?? 0) === 1 ? 'success' : 'danger'
+            )
+            ->textColumn('ip_address', 'IP')
+            ->primarySecondaryColumn(
+                'browser_label',
+                'Browser Agent Details',
+                secondaryKey: 'user_agent',
+                primaryFallback: 'Unknown browser',
+                secondaryPreviewLength: 512
+            )
+            ->textColumn('reason', 'Reason');
+    }
+
+    private function selectedUserId(array $context): int
+    {
+        return max(0, (int)($context[$this->key()]['selected_user_id'] ?? 0));
+    }
+
+    private function rows(array $context): array
+    {
+        return array_map(
+            fn(array $row): array => $this->normaliseRow($row),
+            array_filter(
+                (array)(($context['services'] ?? [])['logon_rows'] ?? []),
+                static fn(mixed $row): bool => is_array($row)
+            )
+        );
+    }
+
+    private function normaliseRow(array $row): array
+    {
+        $principal = trim((string)($row['user_display_name'] ?? ''));
+
+        if ($principal === '') {
+            $principal = trim((string)($row['attempted_email_address'] ?? ''));
+        }
+
+        $row['principal'] = $principal !== '' ? $principal : 'Unknown user';
+
+        return $row;
+    }
+
+    private function userFilterOptions(array $context): array
+    {
+        $options = ['0' => 'All users'];
+
+        foreach ((array)(($context['services'] ?? [])['users'] ?? []) as $user) {
             $userId = (int)($user['id'] ?? 0);
             if ($userId <= 0) {
                 continue;
@@ -166,32 +185,14 @@ final class _user_logon_history_logCard extends CardBaseFramework
                 $label .= ' (' . $email . ')';
             }
 
-            $optionsHtml .= '<option value="' . HelperFramework::escape((string)$userId) . '"' . ($selectedUserId === $userId ? ' selected' : '') . '>'
-                . HelperFramework::escape($label)
-                . '</option>';
+            $options[(string)$userId] = $label;
         }
 
-        return '<form method="post" data-ajax="true" class="toolbar">
-            <input type="hidden" name="_pagination" value="1">
-            <input type="hidden" name="page" value="' . HelperFramework::escape((string)($context['page']['page_id'] ?? '')) . '">
-            ' . $this->hiddenCardFields($context) . '
-            <div class="form-row">
-                <label for="user-logon-history-user-id">User</label>
-                <select class="selector-input" id="user-logon-history-user-id" name="logon_history_user_id">
-                    ' . $optionsHtml . '
-                </select>
-            </div>
-        </form>';
+        return $options;
     }
 
-    private function hiddenCardFields(array $context): string
+    private function tableInvalidationFact(): string
     {
-        $html = '';
-
-        foreach ((array)($context['page']['page_cards'] ?? []) as $cardKey) {
-            $html .= '<input type="hidden" name="cards[]" value="' . HelperFramework::escape((string)$cardKey) . '">';
-        }
-
-        return $html;
+        return (string)($this->invalidationFacts()[0] ?? 'user.logon.history.log');
     }
 }

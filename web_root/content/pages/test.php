@@ -55,6 +55,7 @@ final class _test extends PageContextFramework
         return [
             'test_source',
             'test_target',
+            'table_export_demo',
             'otp_status_test',
             'anti_fraud_test',
             'dump_context',

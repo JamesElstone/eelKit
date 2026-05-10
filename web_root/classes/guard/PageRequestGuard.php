@@ -105,7 +105,11 @@ final class PageRequestGuard
     {
         return $request->isPost()
             && $request->isAjax()
-            && (trim($request->action()) !== '' || trim($request->cardAction()) !== '');
+            && (
+                trim($request->action()) !== ''
+                || trim($request->cardAction()) !== ''
+                || trim((string)$request->input('_table_export_prepare', '')) !== ''
+            );
     }
 
     public function ajaxNonceErrorResponse(string $message): ResponseFramework

@@ -535,8 +535,9 @@
         const ajaxFlag = String(payload._ajax || '').trim();
         const action = String(payload.action || '').trim();
         const cardAction = String(payload.card_action || '').trim();
+        const tableExportPrepare = String(payload._table_export_prepare || '').trim();
 
-        return ajaxFlag === '1' && (action !== '' || cardAction !== '');
+        return ajaxFlag === '1' && (action !== '' || cardAction !== '' || tableExportPrepare !== '');
     }
 
     function reserveAjaxNonce() {
@@ -720,6 +721,21 @@
         window.location.href = nextUrl;
 
         return true;
+    }
+
+    function triggerFileDownload(url) {
+        const downloadUrl = String(url || '').trim();
+        if (downloadUrl === '') {
+            return;
+        }
+
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.rel = 'noopener';
+        link.hidden = true;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
     }
 
     function appendCurrentPageCardKeys(formData, form = null) {
@@ -1914,6 +1930,11 @@
             completeAjaxNonce(ajaxNonce, payload?.ajax_nonce);
 
             if (navigateToAjaxPayloadPage(payload)) {
+                return;
+            }
+
+            if (payload && typeof payload.download_url === 'string' && payload.download_url.trim() !== '') {
+                triggerFileDownload(payload.download_url);
                 return;
             }
 

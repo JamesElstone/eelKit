@@ -45,66 +45,97 @@ final class _activityCard extends CardBaseFramework
 
     public function render(array $context): string
     {
-        $itemsHtml = '';
-        $page = (array)($context['page'] ?? []);
-        $selectedWindow = $this->normaliseWindow((string)($page['activity_window'] ?? '7_days'));
-        $activity = (array)(($context['services'] ?? [])['activity_feed'] ?? ($page['activity'] ?? []));
-        $pagination = HelperFramework::paginateArray(
-            $activity,
-            $this->paginationPage($context),
-            self::PAGE_SIZE
-        );
-        $activity = (array)$pagination['items'];
+        $selectedWindow = $this->selectedWindow($context);
+        return $this->configuredTable($context)->render($context, [
+            'cards[]' => (array)($context['page']['page_cards'] ?? []),
+            'activity_window' => $selectedWindow,
+        ]);
+    }
 
-        foreach ($activity as $item) {
-            $meta = trim((string)($item['meta'] ?? ''));
-            $occurredAt = trim((string)($item['occurred_at'] ?? ''));
-            $helper = trim(implode(' | ', array_filter([$occurredAt, $meta], static fn(string $part): bool => $part !== '')));
+    public function tables(array $context): array
+    {
+        return [$this->table($context)];
+    }
 
-            $itemsHtml .= '<div class="list-item">
-                <strong>' . HelperFramework::escape((string)($item['title'] ?? '')) . '</strong>
-                <span>' . HelperFramework::escape((string)($item['detail'] ?? '')) . '</span>
-                ' . ($helper !== '' ? '<span class="helper">' . HelperFramework::escape($helper) . '</span>' : '') . '
-            </div>';
-        }
+    private function configuredTable(array $context): TableFramework
+    {
+        $selectedWindow = $this->selectedWindow($context);
+        $pagination = HelperFramework::paginateArray($this->rows($context), $this->paginationPage($context), self::PAGE_SIZE);
 
-        if ($itemsHtml === '') {
-            $itemsHtml = '<div class="list-item">
-                <strong>No recent activity</strong>
-                <span>No audit or history events have been recorded yet.</span>
-            </div>';
-        }
-
-        return $this->filterControls($context, $selectedWindow)
-            . '<div class="list">' . $itemsHtml . '</div>'
-            . $this->paginationControls(
-                $context,
+        return $this->table($context)
+            ->visibleRows((array)$pagination['items'])
+            ->pagination(
                 $pagination,
                 'Activity',
-                null,
-                ['activity_window' => $selectedWindow]
+                $this->paginationPageField(),
+                [
+                    'page' => (string)($context['page']['page_id'] ?? ''),
+                    '_pagination' => '1',
+                    '_invalidate_fact' => $this->tableInvalidationFact(),
+                    'cards[]' => [$this->key()],
+                    'activity_window' => $selectedWindow,
+                ]
+            )
+            ->filterSelect(
+                'activity_window',
+                'Window',
+                $this->windowOptions(),
+                $selectedWindow,
+                [
+                    'page' => (string)($context['page']['page_id'] ?? ''),
+                    '_pagination' => '1',
+                    '_invalidate_fact' => $this->tableInvalidationFact(),
+                    'cards[]' => [$this->key()],
+                ]
             );
     }
 
-    private function filterControls(array $context, string $selectedWindow): string
+    private function table(array $context): TableFramework
     {
-        $options = [
+        return TableFramework::make($this->key(), $this->rows($context))
+            ->filename('activity')
+            ->exportLimit(500)
+            ->empty('No audit or history events have been recorded yet.')
+            ->column(
+                'title',
+                'Title',
+                html: static fn(array $row): string => '<strong>' . HelperFramework::escape((string)($row['title'] ?? '')) . '</strong>',
+                export: static fn(array $row): string => (string)($row['title'] ?? '')
+            )
+            ->textColumn('detail', 'Detail')
+            ->textColumn('occurred_at', 'Time')
+            ->textColumn('meta', 'Meta');
+    }
+
+    private function rows(array $context): array
+    {
+        $page = (array)($context['page'] ?? []);
+
+        return array_values(array_filter(
+            (array)(($context['services'] ?? [])['activity_feed'] ?? ($page['activity'] ?? [])),
+            static fn(mixed $row): bool => is_array($row)
+        ));
+    }
+
+    private function selectedWindow(array $context): string
+    {
+        $page = (array)($context['page'] ?? []);
+
+        return $this->normaliseWindow((string)($page['activity_window'] ?? '7_days'));
+    }
+
+    private function windowOptions(): array
+    {
+        return [
             '1_day' => '1 day',
             '7_days' => '7 days',
             'this_month' => 'This month',
         ];
-        $buttons = '';
+    }
 
-        foreach ($options as $value => $label) {
-            $buttons .= '<button class="button button-inline' . ($selectedWindow === $value ? ' primary' : '') . '" type="submit" name="activity_window" value="' . HelperFramework::escape($value) . '" data-show-card="activity">'
-                . HelperFramework::escape($label)
-                . '</button>';
-        }
-
-        return '<form class="toolbar" method="post" data-ajax="true" data-invalidate-page="true">
-            <input type="hidden" name="card_action" value="Activity">
-            ' . $buttons . '
-        </form>';
+    private function tableInvalidationFact(): string
+    {
+        return (string)($this->invalidationFacts()[0] ?? 'dashboard.feed');
     }
 
     private function normaliseWindow(string $window): string

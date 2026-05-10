@@ -64,6 +64,48 @@ $harness->check(ActionDispatcherFramework::class, 'reloads page for pagination r
     $harness->assertSame(['page.reload'], $result->changedFacts());
 });
 
+$harness->check(ActionDispatcherFramework::class, 'uses scoped invalidation facts for pagination requests', function () use ($harness, $pageServices): void {
+    $request = new RequestFramework(
+        [],
+        [
+            '_pagination' => '1',
+            '_invalidate_fact' => 'table.export.demo',
+        ],
+        ['REQUEST_METHOD' => 'POST'],
+        [],
+        []
+    );
+
+    $result = (new ActionDispatcherFramework())->dispatch(
+        $request,
+        $pageServices,
+        static fn(): ActionResultFramework => ActionResultFramework::success(['unexpected'])
+    );
+
+    $harness->assertSame(['table.export.demo'], $result->changedFacts());
+});
+
+$harness->check(ActionDispatcherFramework::class, 'does not dispatch table export prepare as a page action', function () use ($harness, $pageServices): void {
+    $request = new RequestFramework(
+        [],
+        [
+            '_table_export_prepare' => 'csv',
+            'table_key' => 'demo_table',
+        ],
+        ['REQUEST_METHOD' => 'POST'],
+        [],
+        []
+    );
+
+    $result = (new ActionDispatcherFramework())->dispatch(
+        $request,
+        $pageServices,
+        static fn(): ActionResultFramework => ActionResultFramework::success(['unexpected'])
+    );
+
+    $harness->assertSame([], $result->changedFacts());
+});
+
 $harness->check(ActionDispatcherFramework::class, 'dispatches valid shared card actions', function () use ($harness, $pageServices): void {
     $request = new RequestFramework([], ['card_action' => 'Test'], ['REQUEST_METHOD' => 'POST'], [], []);
 

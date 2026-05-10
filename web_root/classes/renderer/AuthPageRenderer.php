@@ -11,7 +11,7 @@ final class AuthPageRenderer
 {
     public function __construct(
         private readonly string $appName,
-        private readonly string $appStrapline = 'Bookkeeping without the fog and panic',
+        private readonly string $appStrapline,
     )
     {
     }

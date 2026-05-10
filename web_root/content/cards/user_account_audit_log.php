@@ -30,6 +30,11 @@ final class _user_account_audit_logCard extends CardBaseFramework
         ];
     }
 
+    public function helper(array $context): string 
+    {
+        return 'Recent user-account changes such as profile updates, password changes, OTP resets, and enable or disable actions.';
+    }
+
     protected function additionalInvalidationFacts(): array
     {
         return ['page.context'];
@@ -42,89 +47,82 @@ final class _user_account_audit_logCard extends CardBaseFramework
 
     public function render(array $context): string
     {
-        $rows = (array)(($context['services'] ?? [])['audit_rows'] ?? []);
-        $pagination = HelperFramework::paginateArray(
-            $rows,
-            $this->paginationPage($context),
-            self::PAGE_SIZE
+        return $this->configuredTable($context)->render(
+            $context, 
+            [
+                'cards[]' => (array)($context['page']['page_cards'] ?? []),
+            ]
         );
-        $rows = (array)$pagination['items'];
-        $tableRows = '';
-
-        foreach ($rows as $row) {
-            $details = $this->detailsSummary((string)($row['details_json'] ?? ''));
-            $userAgent = trim((string)($row['user_agent'] ?? ''));
-            $userAgentHtml = $userAgent !== ''
-                ? '<div class="helper log-agent-preview" title="' . HelperFramework::escape($userAgent) . '">' . HelperFramework::escape($this->compactText($userAgent, 96)) . '</div>'
-                : '';
-
-            $tableRows .= '<tr>
-                <td>' . HelperFramework::escape((string)($row['created_at'] ?? '')) . '</td>
-                <td>' . HelperFramework::escape((string)($row['affected_user_display_name'] ?? '')) . '</td>
-                <td>' . HelperFramework::escape((string)($row['actor_user_display_name'] ?? 'System')) . '</td>
-                <td><span class="badge info">' . HelperFramework::escape(HelperFramework::labelFromKey((string)($row['action_type'] ?? ''), '_')) . '</span></td>
-                <td>' . HelperFramework::escape((string)($row['reason'] ?? '')) . ($details !== '' ? '<div class="helper">' . HelperFramework::escape($details) . '</div>' : '') . '</td>
-                <td class="log-agent-cell">' . HelperFramework::escape((string)($row['ip_address'] ?? '')) . $userAgentHtml . '</td>
-            </tr>';
-        }
-
-        if ($tableRows === '') {
-            $tableRows = '<tr><td colspan="6">No user account audit events have been recorded yet.</td></tr>';
-        }
-
-        return '
-            <p class="helper">Recent user-account changes such as profile updates, password changes, OTP resets, and enable or disable actions.</p>
-            <div class="table-scroll user-account-audit-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Affected<br>User</th>
-                            <th>Actor</th>
-                            <th>Action</th>
-                            <th>Reason</th>
-                            <th>IP / User Agent</th>
-                        </tr>
-                    </thead>
-                    <tbody>' . $tableRows . '</tbody>
-                </table>
-            </div>
-            ' . $this->paginationControls($context, $pagination, 'User account audit events') . '
-        ';
     }
 
-    private function detailsSummary(string $detailsJson): string
+    public function tables(array $context): array
     {
-        $detailsJson = trim($detailsJson);
-        if ($detailsJson === '') {
-            return '';
-        }
-
-        $decoded = json_decode($detailsJson, true);
-        if (!is_array($decoded) || $decoded === []) {
-            return '';
-        }
-
-        $parts = [];
-
-        foreach ($decoded as $key => $value) {
-            if (is_array($value) || is_object($value)) {
-                continue;
-            }
-
-            $parts[] = str_replace('_', ' ', (string)$key) . ': ' . (string)$value;
-        }
-
-        return implode(' | ', $parts);
+        return [$this->table($context)];
     }
 
-    private function compactText(string $value, int $maxLength): string
+    private function configuredTable(array $context): TableFramework
     {
-        $value = trim(preg_replace('/\s+/', ' ', $value) ?? $value);
-        if ($value === '' || mb_strlen($value) <= $maxLength) {
-            return $value;
-        }
+        $rows = $this->rows($context);
+        $pagination = HelperFramework::paginateArray($rows, $this->paginationPage($context), self::PAGE_SIZE);
 
-        return rtrim(mb_substr($value, 0, max(1, $maxLength - 1))) . '...';
+        return $this->table($context)
+            ->visibleRows((array)$pagination['items'])
+            ->pagination(
+                $pagination,
+                'User account audit events',
+                $this->paginationPageField(),
+                [
+                    'page' => (string)($context['page']['page_id'] ?? ''),
+                    '_pagination' => '1',
+                    '_invalidate_fact' => $this->tableInvalidationFact(),
+                    'cards[]' => [$this->key()],
+                ]
+            );
+    }
+
+    private function table(array $context): TableFramework
+    {
+        return TableFramework::make($this->key(), $this->rows($context))
+            ->filename('user-account-audit-log')
+            ->exportLimit(200)
+            ->empty('No user account audit events have been recorded yet.')
+            ->classes(wrapperClass: 'table-scroll user-account-audit-table')
+            ->textColumn('created_at', 'Time')
+            ->textColumn('affected_user_display_name', 'Affected User')
+            ->textColumn(
+                'actor_user_display_name',
+                'Actor',
+                fallback: 'System'
+            )
+            ->badgeColumn(
+                'action_type',
+                'Action',
+                badgeClass: 'info',
+                labelSeparator: '_'
+            )
+            ->textWithJsonSummaryColumn(
+                'reason',
+                'Reason',
+                'details_json'
+            )
+            ->primarySecondaryColumn(
+                'ip_address',
+                'IP / User Agent',
+                secondaryKey: 'user_agent',
+                secondaryPreviewLength: 96,
+                secondaryClass: 'helper',
+                secondaryPreviewClass: 'log-agent-preview',
+                cellClass: 'log-agent-cell'
+            );
+    }
+
+    private function rows(array $context): array
+    {
+        return (array)(($context['services'] ?? [])['audit_rows'] ?? []);
+    }
+
+    private function tableInvalidationFact(): string
+    {
+        return (string)($this->invalidationFacts()[0] ?? 'user.account.audit.log');
     }
 }

@@ -23,27 +23,9 @@ final class NavigationFramework
 
     public function build(): array
     {
-        if (!is_dir($this->pagesDirectory)) {
-            return [];
-        }
-
-        $entries = scandir($this->pagesDirectory);
-        if (!is_array($entries)) {
-            return [];
-        }
-
         $items = [];
 
-        foreach ($entries as $filename) {
-            if (!$this->isPageFile($filename)) {
-                continue;
-            }
-
-            $pageKey = $this->pageKeyFromFilename($filename);
-            if ($pageKey === '') {
-                continue;
-            }
-
+        foreach ($this->pageKeys() as $pageKey) {
             if (!PageAccessFramework::isPageAvailable($pageKey)) {
                 continue;
             }
@@ -73,6 +55,32 @@ final class NavigationFramework
         );
 
         return $items;
+    }
+
+    public function pageKeys(): array
+    {
+        if (!is_dir($this->pagesDirectory)) {
+            return [];
+        }
+
+        $entries = scandir($this->pagesDirectory);
+        if (!is_array($entries)) {
+            return [];
+        }
+
+        $pageKeys = [];
+        foreach ($entries as $filename) {
+            if (!$this->isPageFile($filename)) {
+                continue;
+            }
+
+            $pageKey = $this->pageKeyFromFilename($filename);
+            if ($pageKey !== '') {
+                $pageKeys[] = $pageKey;
+            }
+        }
+
+        return array_values(array_unique($pageKeys));
     }
 
     private function isPageFile(string $filename): bool

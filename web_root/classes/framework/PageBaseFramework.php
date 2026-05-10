@@ -24,27 +24,15 @@ abstract class PageBaseFramework implements PageInterfaceFramework
                 => $this->handlePageAction($request, $services)
         );
 
-        $pageContext = $this->buildContext($request, $services, $actionResult);
+        $context = $this->buildContextForRequest($request, $services, $actionResult);
+        $cardRenderer = new CardRendererFramework(new CardFactoryFramework());
 
-        // Build page context
-        $concatenatedContext = array_merge(
-            $pageContext,
-            $actionResult->context()
-        );
+        $exportResponse = (new TableExportFramework())->handle($this, $request, $context, $services, $cardRenderer);
+        if ($exportResponse instanceof ResponseFramework) {
+            return $exportResponse;
+        }
 
-        $context = $concatenatedContext;
-
-        $context['page']['page_cards'] = $this->allowedPageCards($context, $services);
-        
-        $context['page']['cards_dom_ids'] = array_map(
-            fn(string $cardKey): string => HelperFramework::cardDomId($this->id(), $cardKey),
-            $context['page']['page_cards']
-        );
-
-        $context = $this->handleCards($request, $services, $context, $actionResult);
-        $renderer = new PageRendererFramework(
-            new CardRendererFramework(new CardFactoryFramework())
-        );
+        $renderer = new PageRendererFramework($cardRenderer);
 
         if ($request->isAjax()) {
 
@@ -53,6 +41,28 @@ abstract class PageBaseFramework implements PageInterfaceFramework
         }
 
         return $renderer->renderFull($this, $request, $context, $actionResult, $services);
+    }
+
+    public function buildContextForRequest(
+        RequestFramework $request,
+        PageServiceFramework $services,
+        ActionResultFramework $actionResult
+    ): array {
+        $pageContext = $this->buildContext($request, $services, $actionResult);
+
+        $context = array_merge(
+            $pageContext,
+            $actionResult->context()
+        );
+
+        $context['page']['page_cards'] = $this->allowedPageCards($context, $services);
+
+        $context['page']['cards_dom_ids'] = array_map(
+            fn(string $cardKey): string => HelperFramework::cardDomId($this->id(), $cardKey),
+            $context['page']['page_cards']
+        );
+
+        return $this->handleCards($request, $services, $context, $actionResult);
     }
 
     public function allServiceDefinitions(): array
