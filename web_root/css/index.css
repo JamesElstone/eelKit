@@ -1581,7 +1581,7 @@ tbody tr:last-child td {
 
 .button-inline {
   padding: 8px 12px;
-  font-size: 0.85rem;
+  /*font-size: 0.85rem;*/
   box-shadow: none;
 }
 
