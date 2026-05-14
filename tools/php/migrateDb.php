@@ -77,6 +77,7 @@ function eel_migration_application_tables(): array
         'users',
         'role_card_permissions',
         'user_login_rate_limits',
+        'application_activity_flash_history',
         'user_account_audit',
         'user_logon_history',
         'user_totp',

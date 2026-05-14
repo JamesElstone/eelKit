@@ -23,6 +23,7 @@ abstract class PageBaseFramework implements PageInterfaceFramework
             fn(RequestFramework $request, PageServiceFramework $services): ActionResultFramework
                 => $this->handlePageAction($request, $services)
         );
+        $this->recordFlashActivity($request, $actionResult);
 
         $context = $this->buildContextForRequest($request, $services, $actionResult);
         $cardRenderer = new CardRendererFramework(new CardFactoryFramework());
@@ -95,6 +96,19 @@ abstract class PageBaseFramework implements PageInterfaceFramework
         $currentDeviceId = trim((string)AntiFraudService::instance()->requestValue('Client-Device-ID'));
 
         return $sessionAuthenticationService->authenticatedUserId($currentDeviceId);
+    }
+
+    private function recordFlashActivity(RequestFramework $request, ActionResultFramework $actionResult): void
+    {
+        if ($actionResult->flashMessages() === []) {
+            return;
+        }
+
+        try {
+            (new ActivityStore())->recordFlashMessages($this->id(), $request, $actionResult, $this->currentUserId());
+        } catch (Throwable $exception) {
+            error_log('Unable to record flash activity: ' . $exception->getMessage());
+        }
     }
 
     private function allowedPageCards(array $context, PageServiceFramework $services): array
