@@ -137,6 +137,7 @@ $harness->check('migrateDb.php', 'tracks expected application tables for empty d
         'users',
         'role_card_permissions',
         'user_login_rate_limits',
+        'application_activity_flash_history',
         'user_account_audit',
         'user_logon_history',
         'user_totp',
