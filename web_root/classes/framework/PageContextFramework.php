@@ -19,7 +19,6 @@ abstract class PageContextFramework extends PageBaseFramework
         PageServiceFramework $services,
         ActionResultFramework $actionResult
     ): array {
-        
         $context = [
             'page' => [
                 'page_id' => $this->id(),
@@ -27,10 +26,18 @@ abstract class PageContextFramework extends PageBaseFramework
             ],
         ];
 
-        return array_merge($context, $this->moduleContext($request, $services, $actionResult, $context));
-    }
+        $context = $services->siteContextCoordinator()->injectContext(
+            $request,
+            $this,
+            $services,
+            $context
+        );
 
-    
+        return array_merge(
+            $context,
+            $this->moduleContext($request, $services, $actionResult, $context)
+        );
+    }
 
     protected function moduleContext(
         RequestFramework $request,

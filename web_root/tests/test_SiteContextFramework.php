@@ -158,6 +158,38 @@ final class SiteContextTestPage implements PageInterfaceFramework
     }
 }
 
+final class SiteContextModuleContextPage extends PageContextFramework
+{
+    public array $moduleBaseContext = [];
+
+    public function id(): string { return 'site_context_module_context_test'; }
+    public function title(): string { return 'Site Context Module Context Test'; }
+    public function subtitle(): string { return 'Generic context'; }
+    public function cards(): array { return []; }
+
+    public function buildContextForTest(
+        RequestFramework $request,
+        PageServiceFramework $services,
+        ActionResultFramework $actionResult
+    ): array {
+        return $this->buildContext($request, $services, $actionResult);
+    }
+
+    protected function moduleContext(
+        RequestFramework $request,
+        PageServiceFramework $services,
+        ActionResultFramework $actionResult,
+        array $baseContext
+    ): array {
+        $this->moduleBaseContext = $baseContext;
+
+        return [
+            'module_workspace_id' => $baseContext['site_context']['workspace_id'] ?? null,
+            'module_workspace_name' => $baseContext['workspace']['name'] ?? null,
+        ];
+    }
+}
+
 $harness = new GeneratedServiceClassTestHarness();
 
 $setSiteContextTestConfig = static function (?string $providerClass): void {
@@ -242,6 +274,22 @@ try {
         );
 
         $harness->assertSame(['workspace_id' => 321], $cardContext['services']['probe'] ?? null);
+    });
+
+    $harness->check(PageContextFramework::class, 'injects provider context before module context is built', function () use ($harness, $setSiteContextTestConfig, $createSiteContextTestServices, $createSiteContextTestRequest): void {
+        $setSiteContextTestConfig(SiteContextFakeProvider::class);
+        $services = $createSiteContextTestServices();
+        $page = new SiteContextModuleContextPage();
+        $context = $page->buildContextForTest(
+            $createSiteContextTestRequest(),
+            $services,
+            ActionResultFramework::none()
+        );
+
+        $harness->assertSame(321, $page->moduleBaseContext['site_context']['workspace_id'] ?? null);
+        $harness->assertSame('Example Workspace', $page->moduleBaseContext['workspace']['name'] ?? null);
+        $harness->assertSame(321, $context['module_workspace_id'] ?? null);
+        $harness->assertSame('Example Workspace', $context['module_workspace_name'] ?? null);
     });
 
     $harness->check(SiteContextRendererFramework::class, 'renders sidebar and topbar selector slots from structured selectors', function () use ($harness, $setSiteContextTestConfig, $createSiteContextTestServices, $createSiteContextTestRequest, $renderSiteContextTestFull): void {
