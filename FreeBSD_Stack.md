@@ -116,15 +116,6 @@ odbcinst -q -d -n MariaDB
 Create or edit `/usr/local/etc/odbc.ini`:
 
 ```ini
-[eelKit-admin]
-Driver=MariaDB
-Description=eelKit MariaDB admin connection
-SERVER=127.0.0.1
-PORT=3306
-USER=local
-PASSWORD=replace_with_real_password
-CHARSET=utf8mb4
-
 [eelKit]
 Driver=MariaDB
 Description=eelKit MariaDB
@@ -149,7 +140,7 @@ Create the empty eelKit database with the expected charset and collation:
 
 ```sh
 printf 'CREATE DATABASE IF NOT EXISTS `eelKit` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n' | \
-  isql -v eelKit-admin local 'replace_with_real_password' -b
+  isql -v -k 'DRIVER=MariaDB;SERVER=127.0.0.1;PORT=3306;UID=local;PWD=replace_with_real_password;CHARSET=utf8mb4' -b
 ```
 
 Test the application DSN:
