@@ -207,6 +207,24 @@ final class UserManagementService
         return UserAuthenticationService::passwordPolicyDescription();
     }
 
+    public function userCreationInviteAvailability(): array
+    {
+        $config = AppConfigurationStore::config();
+        $invitation = (array)($config['invitation'] ?? []);
+        $smtp = (array)($config['smtp'] ?? []);
+        $sms = (array)($config['sms'] ?? []);
+        $invitationEnabled = !empty($invitation['enabled']);
+        $smtpReady = $this->smtpInviteDeliveryReady($smtp);
+        $smsReady = $this->smsInviteDeliveryReady($sms);
+
+        return [
+            'available' => $invitationEnabled && ($smtpReady || $smsReady),
+            'invitation_enabled' => $invitationEnabled,
+            'smtp_ready' => $smtpReady,
+            'sms_ready' => $smsReady,
+        ];
+    }
+
     public static function mobileCountryCodeOptions(): array
     {
         return MobileNumberService::countryCodeOptions();
@@ -1094,6 +1112,46 @@ final class UserManagementService
         }
 
         return $methods;
+    }
+
+    private function smtpInviteDeliveryReady(array $smtp): bool
+    {
+        if (empty($smtp['enabled']) || !empty($smtp['development_mode'])) {
+            return false;
+        }
+
+        $fromAddress = strtolower(trim((string)($smtp['from_address'] ?? '')));
+        if ($fromAddress === '' || !filter_var($fromAddress, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        $transport = strtolower(trim((string)($smtp['transport'] ?? 'smtp')));
+        if ($transport === 'mail') {
+            return true;
+        }
+
+        $host = trim((string)($smtp['host'] ?? ''));
+        $port = max(0, (int)($smtp['port'] ?? 0));
+        if ($host === '' || $port < 1 || $port > 65535) {
+            return false;
+        }
+
+        $authMode = strtolower(str_replace('-', '_', trim((string)($smtp['auth_mode'] ?? 'login'))));
+        if ($authMode === 'none') {
+            return true;
+        }
+
+        return trim((string)($smtp['username'] ?? '')) !== ''
+            && trim((string)($smtp['password'] ?? '')) !== '';
+    }
+
+    private function smsInviteDeliveryReady(array $sms): bool
+    {
+        if (empty($sms['enabled']) || !empty($sms['development_mode'])) {
+            return false;
+        }
+
+        return str_contains(trim((string)($sms['api_url'] ?? '')), '{telephone_number}');
     }
 
     private function emailAddressUsedByAnotherUser(int $userId, string $emailAddress): bool
