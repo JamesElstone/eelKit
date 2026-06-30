@@ -22,7 +22,7 @@ final class TableExportFramework
         }
 
         $format = strtolower(trim((string)$request->input('_table_export_prepare', '')));
-        if (!in_array($format, ['csv', 'xlsx'], true)) {
+        if (!in_array($format, ['csv', 'xlsx', 'tsv'], true)) {
             return null;
         }
 
@@ -82,7 +82,7 @@ final class TableExportFramework
 
         $format = strtolower(trim((string)($export['format'] ?? '')));
         $tableKey = trim((string)($export['table_key'] ?? ''));
-        if (!in_array($format, ['csv', 'xlsx'], true) || $tableKey === '') {
+        if (!in_array($format, ['csv', 'xlsx', 'tsv'], true) || $tableKey === '') {
             return ResponseFramework::html('The requested export was invalid.', 400);
         }
 
