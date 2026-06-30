@@ -24,6 +24,7 @@ final class TableFramework
     private array $exportFormats = [
         'csv' => 'CSV',
         'xlsx' => 'XLSX',
+        'tsv' => 'TSV',
     ];
     private int $exportLimit = 5000;
     private array $filters = [];
@@ -401,7 +402,7 @@ final class TableFramework
             }
 
             $format = strtolower(trim((string)$format));
-            if (!in_array($format, ['csv', 'xlsx'], true)) {
+            if (!in_array($format, ['csv', 'xlsx', 'tsv'], true)) {
                 continue;
             }
 
@@ -539,24 +540,34 @@ final class TableFramework
 
     public function exportCsv(): string
     {
+        return $this->exportDelimited(',');
+    }
+
+    public function exportTsv(): string
+    {
+        return $this->exportDelimited("\t");
+    }
+
+    private function exportDelimited(string $delimiter): string
+    {
         $handle = fopen('php://temp', 'r+');
         if ($handle === false) {
             return '';
         }
 
         $columns = $this->exportColumns();
-        fputcsv($handle, array_map(static fn(TableColumnFramework $column): string => $column->label(), $columns), ',', '"', '');
+        fputcsv($handle, array_map(static fn(TableColumnFramework $column): string => $column->label(), $columns), $delimiter, '"', '');
 
         foreach ($this->exportRows() as $row) {
             $row = is_array($row) ? $row : ['value' => $row];
-            fputcsv($handle, array_map(static fn(TableColumnFramework $column): string => $column->exportValue($row), $columns), ',', '"', '');
+            fputcsv($handle, array_map(static fn(TableColumnFramework $column): string => $column->exportValue($row), $columns), $delimiter, '"', '');
         }
 
         rewind($handle);
-        $csv = stream_get_contents($handle);
+        $export = stream_get_contents($handle);
         fclose($handle);
 
-        return is_string($csv) ? $csv : '';
+        return is_string($export) ? $export : '';
     }
 
     public function exportXlsx(): string
@@ -621,6 +632,14 @@ final class TableFramework
                 $this->exportXlsx(),
                 $this->downloadFilename('xlsx'),
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            );
+        }
+
+        if ($format === 'tsv') {
+            return ResponseFramework::download(
+                $this->exportTsv(),
+                $this->downloadFilename('tsv'),
+                'text/tab-separated-values; charset=utf-8'
             );
         }
 
