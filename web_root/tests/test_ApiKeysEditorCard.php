@@ -14,6 +14,7 @@ $harness->check(_api_keys_editorCard::class, 'renders gateway metadata and never
     $harness->assertTrue(str_contains($html, '<select class="select" name="credential[schema]">'));
     $harness->assertTrue(str_contains($html, '<option value="HTTPS" selected>HTTPS</option><option value="HTTP">HTTP</option>'));
     $harness->assertSame(false, str_contains($html, '<input class="input" name="credential[schema]"'));
+    $harness->assertSame(4, substr_count($html, 'data-no-submit-on-change="true"'));
     $harness->assertTrue(str_contains($html, '<textarea'));
     $harness->assertTrue(str_contains($html, 'name="credential[api_identity]"'));
     $harness->assertSame(false, str_contains($html, $secret));
