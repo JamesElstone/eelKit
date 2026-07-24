@@ -72,6 +72,8 @@ The settings area includes cards for invitation templates, external base URL and
 
    The setup tool asks for database settings if `db.dsn` is empty. You can also pass settings directly, for example `php tools/php/setupDb.php --driver=mysql --host=127.0.0.1 --database=eelkit --user=root`.
 
+   For MariaDB through ODBC, configure the named DSN itself with `CHARSET=utf8mb4` on both Windows and FreeBSD. After setup, run `tools/bin/dbUnicodeDiagnostic.sh` (or `tools\bat\dbUnicodeDiagnostic.bat` on Windows) to verify parameterised Unicode and JSON values round-trip byte-for-byte. A successful round trip is the authoritative check for named DSNs because PDO cannot read their ODBC `CHARSET` setting directly.
+
 5. Run the database setup tool. It makes sure `secure/app.php` exists, configures the database if needed, runs migrations, loads the baseline schema first if the configured database has no eelKit application tables, and then refreshes the external IP setting:
 
    ```bash
@@ -95,6 +97,8 @@ The settings area includes cards for invitation templates, external base URL and
 8. Set `developer_options` to `false` in `secure/app.php` for production use once setup and diagnostics are complete.
 
 ## Database Schema Notes
+
+Keep MariaDB databases and text columns on `utf8mb4`. Legacy `latin1` auditing and data repair are application-specific, evidence-led work and are not performed automatically by eelKit.
 
 The schema uses InnoDB foreign keys for user-owned records:
 
