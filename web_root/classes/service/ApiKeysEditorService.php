@@ -15,14 +15,23 @@ final class ApiKeysEditorService
     ) {
     }
 
-    /** @return array{rows:list<array<string,string>>,catalog:list<array<string,string>>} */
+    /** @return array{rows:list<array<string,string>>,catalog:list<array<string,string>>,file_missing:bool,directory_writable:bool} */
     public function listing(): array
     {
+        if (!file_exists($this->path())) {
+            return [
+                'rows' => [],
+                'catalog' => $this->catalog()->entries(),
+                'file_missing' => true,
+                'directory_writable' => is_dir(dirname($this->path())) && is_writable(dirname($this->path())),
+            ];
+        }
+
         $rows = [];
         foreach ($this->parse($this->readContents()) as $entry) {
             if (($entry['kind'] ?? '') === 'credential') { $rows[] = $this->metadata($entry); }
         }
-        return ['rows' => $rows, 'catalog' => $this->catalog()->entries()];
+        return ['rows' => $rows, 'catalog' => $this->catalog()->entries(), 'file_missing' => false, 'directory_writable' => true];
     }
 
     /** @return array{created:bool} */
@@ -148,7 +157,12 @@ final class ApiKeysEditorService
 
     private function readContents(): string
     {
-        $contents = file_get_contents($this->path());
+        $path = $this->path();
+        if (!is_file($path) || !is_readable($path)) {
+            throw new RuntimeException('The API key file is not readable.');
+        }
+
+        $contents = @file_get_contents($path);
         if (!is_string($contents)) { throw new RuntimeException('The API key file is not readable.'); }
         return $contents;
     }

@@ -28,6 +28,16 @@ $harness->check(ApiKeysEditorService::class, 'creates a missing credential file 
     } finally { foreach (glob($path . '*') ?: [] as $file) { @unlink($file); } }
 });
 
+$harness->check(ApiKeysEditorService::class, 'lists a missing credential file without raising a read error', function () use ($harness, $tmp): void {
+    $path = $tmp . DIRECTORY_SEPARATOR . 'api-keys-editor-missing-' . bin2hex(random_bytes(8)) . '.csv';
+    $service = new ApiKeysEditorService($path, new ApiCredentialCatalogService([ApiKeysEditorTestCatalogProvider::class]));
+    $listing = $service->listing();
+    $harness->assertSame(true, $listing['file_missing']);
+    $harness->assertSame(true, $listing['directory_writable']);
+    $harness->assertSame([], $listing['rows']);
+    $harness->assertCount(2, $listing['catalog']);
+});
+
 $harness->check(ApiKeysEditorService::class, 'repairs access without replacing an existing credential file', function () use ($harness, $tmp): void {
     $path = $tmp . DIRECTORY_SEPARATOR . 'api-keys-editor-permissions-' . bin2hex(random_bytes(8)) . '.csv';
     $contents = "PROVIDER,GATEWAY,TAG,ENVIRONMENT,SCHEMA,URL,API_IDENTITY,API_KEY\n";

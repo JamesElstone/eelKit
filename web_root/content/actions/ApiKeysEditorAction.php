@@ -12,9 +12,16 @@ final class ApiKeysEditorAction implements ActionInterfaceFramework
             return new ActionResultFramework(false, ['api.keys.editor'], [['type' => 'error', 'message' => 'You do not have permission to update API credentials, or your security token expired.']]);
         }
         try {
-            if ((string)$request->input('api_keys_editor_operation', '') === 'repair_file') {
+            if ((string)$request->input('api_keys_editor_operation', '') === 'create_file') {
                 if (!(bool)AppConfigurationStore::get('developer_options', false)) {
-                    throw new RuntimeException('Developer Options must be enabled to repair the API key file.');
+                    throw new RuntimeException('Developer Options must be enabled to create the API key file.');
+                }
+                if (file_exists(SecurityStore::apiKeysPath())) {
+                    throw new RuntimeException('The API key file already exists. Refresh the page and try again.');
+                }
+                $directory = dirname(SecurityStore::apiKeysPath());
+                if (!is_dir($directory) || !is_writable($directory)) {
+                    throw new RuntimeException('The secure directory is not writable by the web server. An administrator must correct its operating-system permissions.');
                 }
                 $result = (new ApiKeysEditorService())->repairFile();
                 return ActionResultFramework::success(

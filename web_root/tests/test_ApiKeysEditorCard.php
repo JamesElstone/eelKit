@@ -42,14 +42,14 @@ $harness->check(_api_keys_editorCard::class, 'browser editing prefills clears an
     $harness->assertTrue(str_contains($script, 'initialiseApiCredentialEditors(document);'));
 });
 
-$harness->check(_api_keys_editorCard::class, 'offers file repair only for the unreadable-file error in Developer Options', function () use ($harness): void {
+$harness->check(_api_keys_editorCard::class, 'offers missing-file creation only in Developer Options', function () use ($harness): void {
     $path = AppConfigurationStore::configPath();
     $original = file_get_contents($path);
     if (!is_string($original)) { throw new RuntimeException('Unable to read fixture config.'); }
 
     $context = [
         'page' => ['csrf_token' => 'token', 'page_cards' => ['api_keys_editor']],
-        'service_errors' => ['api_keys_editor' => ['message' => 'The API key file is not readable.']],
+        'services' => ['api_keys_editor' => ['file_missing' => true, 'directory_writable' => true]],
     ];
 
     try {
@@ -58,9 +58,28 @@ $harness->check(_api_keys_editorCard::class, 'offers file repair only for the un
         AppConfigurationStore::set('developer_options', false);
         $disabledHtml = (new _api_keys_editorCard())->render($context);
 
-        $harness->assertTrue(str_contains($enabledHtml, 'name="api_keys_editor_operation" value="repair_file"'));
-        $harness->assertTrue(str_contains($enabledHtml, '>Fix error</button>'));
-        $harness->assertSame(false, str_contains($disabledHtml, '>Fix error</button>'));
+        $harness->assertTrue(str_contains($enabledHtml, 'name="api_keys_editor_operation" value="create_file"'));
+        $harness->assertTrue(str_contains($enabledHtml, '<button class="button danger" type="submit">Create empty file</button>'));
+        $harness->assertSame(false, str_contains($disabledHtml, '>Create empty file</button>'));
+    } finally {
+        file_put_contents($path, $original, LOCK_EX);
+        AppConfigurationStore::config(true);
+    }
+});
+
+$harness->check(_api_keys_editorCard::class, 'warns an administrator when the missing file directory is not writable', function () use ($harness): void {
+    $path = AppConfigurationStore::configPath();
+    $original = file_get_contents($path);
+    if (!is_string($original)) { throw new RuntimeException('Unable to read fixture config.'); }
+
+    try {
+        AppConfigurationStore::set('developer_options', true);
+        $html = (new _api_keys_editorCard())->render([
+            'page' => ['csrf_token' => 'token', 'page_cards' => ['api_keys_editor']],
+            'services' => ['api_keys_editor' => ['file_missing' => true, 'directory_writable' => false]],
+        ]);
+        $harness->assertTrue(str_contains($html, 'operating-system directory permissions'));
+        $harness->assertSame(false, str_contains($html, '>Create empty file</button>'));
     } finally {
         file_put_contents($path, $original, LOCK_EX);
         AppConfigurationStore::config(true);

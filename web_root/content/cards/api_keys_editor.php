@@ -57,19 +57,22 @@ final class _api_keys_editorCard extends CardBaseFramework
 
     private function repairForm(array $context, string $csrf): string
     {
-        $error = $context['service_errors']['api_keys_editor'] ?? null;
-        $message = is_array($error) ? (string)($error['message'] ?? '') : '';
+        $result = (array)(($context['services'] ?? [])['api_keys_editor'] ?? []);
         if (!(bool)AppConfigurationStore::get('developer_options', false)
-            || !str_contains($message, 'API key file is not readable')) {
+            || empty($result['file_missing'])) {
             return '';
+        }
+
+        if (empty($result['directory_writable'])) {
+            return '<section class="panel-soft danger"><p>The API key file is missing and its secure directory is not writable by the web server. An administrator must correct the operating-system directory permissions before this file can be created.</p></section>';
         }
 
         return '<form method="post" action="?page=settings" data-ajax="true" class="settings-stack">'
             . $this->hiddenPageCards($context)
             . HelperFramework::csrfHiddenInput($csrf)
             . '<input type="hidden" name="card_action" value="ApiKeysEditor">'
-            . '<input type="hidden" name="api_keys_editor_operation" value="repair_file">'
-            . '<div class="api-credential-actions"><button class="button primary" type="submit">Fix error</button></div>'
+            . '<input type="hidden" name="api_keys_editor_operation" value="create_file">'
+            . '<div class="api-credential-actions"><button class="button danger" type="submit">Create empty file</button></div>'
             . '</form>';
     }
 
