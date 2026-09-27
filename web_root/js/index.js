@@ -13,9 +13,52 @@
     const flashHistoryLimit = 50;
     const flashHistory = [];
     let activeChickenCheckButton = null;
-    const afStorageKey = 'af_client_device_id';
-    const afPersistentCookieName = 'af_client_device_id';
-    const tableCondensedStoragePrefix = 'table_condensed_view:';
+    const appBasePath = document.documentElement.dataset.eelBasePath || '/';
+    const appScope = document.documentElement.dataset.eelScope || '';
+    const scopedName = (name) => name + (appScope ? `_${appScope}` : '');
+
+    function applicationPath(path = '', query = {}, fragment = '') {
+        path = String(path);
+        if (path.startsWith('//') || /[\x00-\x1f\x7f\\?#:]/.test(path) || /%(?![0-9a-f]{2})/i.test(path)) {
+            throw new Error('Expected a safe application-local path.');
+        }
+        const segments = path.split('/').map((segment) => {
+            const decoded = decodeURIComponent(segment);
+            if (decoded === '.' || decoded === '..' || /[\x00-\x1f\x7f\\/?#:%]/.test(decoded)) {
+                throw new Error('Application paths must not contain traversal or encoded separators.');
+            }
+            return encodeURIComponent(decoded).replace(/[!'()*]/g, (character) => '%' + character.charCodeAt(0).toString(16).toUpperCase());
+        });
+        path = segments.join('/');
+        if (path.includes('//')) throw new Error('Application paths must not contain empty segments.');
+        let url = appBasePath + path.replace(/^\//, '');
+        if (appBasePath !== '/' && (path === appBasePath.slice(0, -1) || path.startsWith(appBasePath))) {
+            url = path === appBasePath.slice(0, -1) ? appBasePath : path;
+        }
+        const search = new URLSearchParams(query).toString();
+        return url + (search ? `?${search}` : '') + (fragment ? `#${encodeURIComponent(fragment)}` : '');
+    }
+
+    function isApplicationUrl(url) {
+        try {
+            const target = new URL(url, window.location.href);
+            return target.origin === window.location.origin && target.pathname.startsWith(appBasePath);
+        } catch (error) {
+            return false;
+        }
+    }
+
+    window.eelKit = window.eelKit || {};
+    window.eelKit.urls = Object.freeze({
+        basePath: appBasePath,
+        path: applicationPath,
+        asset: (path) => applicationPath(path),
+        page: (page, query = {}, fragment = '') => applicationPath('', { ...query, page }, fragment),
+        isApplicationUrl,
+    });
+    const afStorageKey = scopedName('af_client_device_id');
+    const afPersistentCookieName = scopedName('af_client_device_id');
+    const tableCondensedStoragePrefix = scopedName('table_condensed_view:');
     let afEphemeralDeviceId = null;
     const ajaxNonceBootstrapId = 'ajax-security-bootstrap';
     const ajaxNonceState = {
@@ -311,7 +354,7 @@
     }
 
     function afSetCookie(name, value, maxAgeSeconds) {
-        let cookie = `${name}=${encodeURIComponent(value)}; path=/; SameSite=Lax; max-age=${String(maxAgeSeconds)}`;
+        let cookie = `${name}=${encodeURIComponent(value)}; path=${appBasePath}; SameSite=Lax; max-age=${String(maxAgeSeconds)}`;
 
         if (window.location.protocol === 'https:') {
             cookie += '; Secure';
@@ -761,14 +804,6 @@
         return parts.join('&');
     }
 
-    function afIsSameOrigin(url) {
-        try {
-            return new URL(url, window.location.href).origin === window.location.origin;
-        } catch (error) {
-            return false;
-        }
-    }
-
     function afApplyHeaders(headers, values) {
         Object.keys(values).forEach((fieldName) => {
             const value = values[fieldName];
@@ -813,7 +848,7 @@
         headers.set('X-Requested-With', 'XMLHttpRequest');
         headers.set('Accept', 'application/json, application/x-ndjson');
 
-        if (afIsSameOrigin(url)) {
+        if (isApplicationUrl(url)) {
             const values = await afGatherAntiFraudValues();
             afApplyHeaders(headers, values);
         }
@@ -1436,6 +1471,7 @@
     }
 
     async function sendAjax(url, options = {}) {
+        if (!isApplicationUrl(url)) throw new Error('AJAX destination is outside this application.');
         options = ajaxOptionsWithSiteContext(options);
 
         const transport = options.transport;
@@ -3870,6 +3906,8 @@
             return;
         }
 
+        if (form.dataset.eelExternal === 'true' || !isApplicationUrl(formRequestUrl(form))) return;
+
         resolveSelfVisibleCardField(form);
         syncSiteContextFieldsToForm(form);
 
@@ -4029,6 +4067,7 @@
             return;
         }
 
+        if (link.dataset.eelExternal === 'true' || !isApplicationUrl(link.href) || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target === '_blank') return;
         event.preventDefault();
         if (link.closest('.nav-group')) {
             await centerNavLinkInView(link);

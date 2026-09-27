@@ -142,7 +142,7 @@ final class _invited_usersCard extends CardBaseFramework
         $csrfToken = (string)($context['page']['csrf_token'] ?? '');
 
         return '<div class="actions-row">
-            <form method="post" action="?page=users" data-ajax="true">
+            <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true">
                 ' . $cards . '
                 <input type="hidden" name="action" value="users-copy-invite-link">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
@@ -150,7 +150,7 @@ final class _invited_usersCard extends CardBaseFramework
                 <input type="hidden" name="contact_method" value="auto">
                 <button class="button primary" type="submit">Copy Link</button>
             </form>
-            <form method="post" action="?page=users" data-ajax="true">
+            <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true">
                 ' . $cards . '
                 <input type="hidden" name="action" value="users-revoke-invite">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">

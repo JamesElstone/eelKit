@@ -39,7 +39,7 @@ final class _sms_settingsCard extends CardBaseFramework
         $testDisabledReason = $this->testDisabledReason((string)($currentUser['mobile_number'] ?? ''));
         $testFormId = 'sms-test-form';
 
-        return '<form method="post" action="?page=settings" data-ajax="true" class="form-grid">
+        return '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('settings')) . '" data-ajax="true" class="form-grid">
             ' . $this->hiddenFields($context) . '
             <input type="hidden" name="card_action" value="SmsSettings">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
@@ -66,7 +66,7 @@ final class _sms_settingsCard extends CardBaseFramework
                 </div>
             </fieldset>
         </form>
-        <form id="' . HelperFramework::escape($testFormId) . '" method="post" action="?page=settings" data-ajax="true">
+        <form id="' . HelperFramework::escape($testFormId) . '" method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('settings')) . '" data-ajax="true">
             ' . $this->hiddenFields($context) . '
             <input type="hidden" name="card_action" value="SmsTest">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">

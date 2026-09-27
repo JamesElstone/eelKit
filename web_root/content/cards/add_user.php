@@ -70,7 +70,7 @@ final class _add_userCard extends CardBaseFramework
             : '';
 
         $addForm = '
-            <form method="post" action="?page=users" data-ajax="true" class="form-grid"' . $addPanelAttributes . '>
+            <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true" class="form-grid"' . $addPanelAttributes . '>
                 ' . $this->hiddenFields($context) . '
                 <input type="hidden" name="action" value="users-create-user">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
@@ -133,7 +133,7 @@ final class _add_userCard extends CardBaseFramework
                 <button class="segmented-option" type="button" role="tab" aria-selected="false" aria-controls="' . HelperFramework::escape($invitePanelId) . '" data-user-create-mode-button="invite">Invite</button>
             </div>
             ' . $addForm . '
-            <form method="post" action="?page=users" data-ajax="true" data-require-invite-contact="true" class="form-grid" id="' . HelperFramework::escape($invitePanelId) . '" data-user-create-mode-panel="invite" role="tabpanel" hidden>
+            <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true" data-require-invite-contact="true" class="form-grid" id="' . HelperFramework::escape($invitePanelId) . '" data-user-create-mode-panel="invite" role="tabpanel" hidden>
                 ' . $this->hiddenFields($context) . '
                 <input type="hidden" name="action" value="users-create-invited-user">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">

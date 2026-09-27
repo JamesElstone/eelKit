@@ -157,7 +157,7 @@ final class _current_usersCard extends CardBaseFramework
             return '<span class="badge info">Cannot change own role</span>';
         }
 
-        return '<form method="post" action="?page=users" data-ajax="true">
+        return '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true">
             ' . $cards . '
             <input type="hidden" name="action" value="users-set-role">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape((string)($context['page']['csrf_token'] ?? '')) . '">
@@ -178,7 +178,7 @@ final class _current_usersCard extends CardBaseFramework
         $otpRequired = (int)($user['otp_required'] ?? 1) === 1;
         $cards = $this->hiddenFields($context);
 
-        return '<form method="post" action="?page=users" data-ajax="true">
+        return '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true">
             ' . $cards . '
             <input type="hidden" name="action" value="users-set-otp-required">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape((string)($context['page']['csrf_token'] ?? '')) . '">
@@ -209,7 +209,7 @@ final class _current_usersCard extends CardBaseFramework
 
         return '<div class="actions-row">
             ' . ($isPendingInvitation ? $this->inviteActionsHtml($context, $user) : '') . '
-            <form method="post" action="?page=users" data-ajax="true">
+            <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true">
                 ' . $cards . '
                 <input type="hidden" name="action" value="users-toggle-user">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
@@ -217,14 +217,14 @@ final class _current_usersCard extends CardBaseFramework
                 <input type="hidden" name="target_state" value="' . HelperFramework::escape($enableState) . '">
                 ' . $toggleButton . '
             </form>
-            ' . ($isPendingInvitation ? '' : '<form method="post" action="?page=users" data-ajax="true">
+            ' . ($isPendingInvitation ? '' : '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true">
                 ' . $cards . '
                 <input type="hidden" name="action" value="users-reset-otp">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
                 <input type="hidden" name="target_user_id" value="' . HelperFramework::escape((string)$userId) . '">
                 <button class="button primary" type="submit">Reset OTP</button>
             </form>
-            <form method="post" action="?page=users" data-ajax="true">
+            <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true">
                 ' . $cards . '
                 <input type="hidden" name="action" value="users-require-password-change">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
@@ -233,7 +233,7 @@ final class _current_usersCard extends CardBaseFramework
             </form>') . '
             ' . ($isCurrentUser
                 ? '<span class="badge info">Use Current User Details to change password</span>'
-                : ($isPendingInvitation ? '' : '<form method="post" action="?page=users" data-ajax="true" class="input-action-row">
+                : ($isPendingInvitation ? '' : '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true" class="input-action-row">
                 ' . $cards . '
                 <input type="hidden" name="action" value="users-set-password">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
@@ -284,7 +284,7 @@ final class _current_usersCard extends CardBaseFramework
 
     private function inviteButton(string $cards, string $csrfToken, int $userId, string $mode, string $contactMethod, string $label): string
     {
-        return '<form method="post" action="?page=users" data-ajax="true">
+        return '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true">
             ' . $cards . '
             <input type="hidden" name="action" value="' . ($mode === 'copy' ? 'users-copy-invite-link' : 'users-send-invite') . '">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">

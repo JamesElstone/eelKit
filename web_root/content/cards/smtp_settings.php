@@ -26,7 +26,7 @@ final class _smtp_settingsCard extends CardBaseFramework
         $hasPassword = trim((string)($smtp['password'] ?? '')) !== '';
         $testFormId = 'smtp-test-form';
 
-        return '<form method="post" action="?page=settings" data-ajax="true" class="form-grid">
+        return '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('settings')) . '" data-ajax="true" class="form-grid">
             ' . $this->hiddenFields($context) . '
             <input type="hidden" name="card_action" value="SmtpSettings">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
@@ -67,7 +67,7 @@ final class _smtp_settingsCard extends CardBaseFramework
                 </div>
             </fieldset>
         </form>
-        <form id="' . HelperFramework::escape($testFormId) . '" method="post" action="?page=settings" data-ajax="true">
+        <form id="' . HelperFramework::escape($testFormId) . '" method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('settings')) . '" data-ajax="true">
             ' . $this->hiddenFields($context) . '
             <input type="hidden" name="card_action" value="SmtpTest">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">

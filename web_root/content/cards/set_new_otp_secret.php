@@ -72,7 +72,7 @@ final class _set_new_otp_secretCard extends CardBaseFramework
                     <div class="auth-secret-label">Manual entry secret</div>
                     <code class="auth-secret-value">' . HelperFramework::escape((string)($setup['manual_secret'] ?? '')) . '</code>
                 </div>
-                <form method="post" action="?page=users" data-ajax="true" class="form-grid">
+                <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true" class="form-grid">
                     ' . $this->hiddenFields($context) . '
                     <input type="hidden" name="action" value="users-complete-otp-rotation">
                     <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
@@ -87,7 +87,7 @@ final class _set_new_otp_secretCard extends CardBaseFramework
                     </div>
                 </form>';
         } else {
-            $actionHtml = '<form method="post" action="?page=users" data-ajax="true" class="otp-rotation-form">
+            $actionHtml = '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true" class="otp-rotation-form">
                 ' . $this->hiddenFields($context) . '
                 <input type="hidden" name="action" value="users-begin-otp-rotation">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">

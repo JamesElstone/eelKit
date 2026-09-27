@@ -222,7 +222,8 @@ final class RequestFramework
     {
         $query = $this->withMergedQuery(['page' => $this->getPage()] + $extraQuery);
 
-        return '?' . http_build_query($query);
+        return (ApplicationUrlFramework::basePath() === '/' ? '' : ApplicationUrlFramework::basePath())
+            . '?' . http_build_query($query);
     }
 
     private function parseJsonInput(?string $rawBody): array

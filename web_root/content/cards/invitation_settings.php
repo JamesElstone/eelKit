@@ -36,7 +36,7 @@ final class _invitation_settingsCard extends CardBaseFramework
         $invitation = is_array($config['invitation'] ?? null) ? $config['invitation'] : [];
         $csrfToken = (string)($context['page']['csrf_token'] ?? '');
 
-        return '<form method="post" action="?page=settings" data-ajax="true" class="form-grid">
+        return '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('settings')) . '" data-ajax="true" class="form-grid">
             ' . $this->hiddenFields($context) . '
             <input type="hidden" name="card_action" value="InvitationSettings">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">

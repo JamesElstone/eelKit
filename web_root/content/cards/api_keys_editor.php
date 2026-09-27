@@ -36,7 +36,7 @@ final class _api_keys_editorCard extends CardBaseFramework
         }
 
         return $this->repairForm($context, $csrf)
-            . '<form method="post" action="?page=settings" data-ajax="true" class="settings-stack" data-api-credential-editor="true" data-api-credential-catalog="' . HelperFramework::escape($catalogJson) . '">'
+            . '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('settings')) . '" data-ajax="true" class="settings-stack" data-api-credential-editor="true" data-api-credential-catalog="' . HelperFramework::escape($catalogJson) . '">'
             . $this->hiddenPageCards($context)
             . HelperFramework::csrfHiddenInput($csrf)
             . '<input type="hidden" name="card_action" value="ApiKeysEditor"><input type="hidden" name="edit_credential_id" value="" data-api-credential-id>'
@@ -67,7 +67,7 @@ final class _api_keys_editorCard extends CardBaseFramework
             return '<section class="panel-soft danger"><p>The API key file is missing and its secure directory is not writable by the web server. An administrator must correct the operating-system directory permissions before this file can be created.</p></section>';
         }
 
-        return '<form method="post" action="?page=settings" data-ajax="true" class="settings-stack">'
+        return '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('settings')) . '" data-ajax="true" class="settings-stack">'
             . $this->hiddenPageCards($context)
             . HelperFramework::csrfHiddenInput($csrf)
             . '<input type="hidden" name="card_action" value="ApiKeysEditor">'

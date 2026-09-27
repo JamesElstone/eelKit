@@ -198,7 +198,7 @@ final class SiteContextRendererFramework
     {
         $pageId = $page->id() !== '' ? $page->id() : $request->getPage();
 
-        return '?page=' . rawurlencode($pageId);
+        return ApplicationUrlFramework::page($pageId);
     }
 
     private function pageCards(PageInterfaceFramework $page, array $context): array

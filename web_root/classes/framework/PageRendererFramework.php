@@ -25,7 +25,7 @@ final class PageRendererFramework
 
         $html = $this->renderLayout($page, $request, $context, $cardsHtml, $actionResult, $services);
 
-        return ResponseFramework::html($html);
+        return ResponseFramework::html(ApplicationHtmlFramework::prepare($html));
     }
 
     private function renderCardLayout(
@@ -235,8 +235,8 @@ final class PageRendererFramework
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>' . $title . ' | ' . $escapedAppName . '</title>
-                <link rel="icon" type="image/x-icon" href="favicon.ico">
-                <link rel="stylesheet" href="css/index.css">
+                <link rel="icon" type="image/x-icon" href="' . HelperFramework::escape(ApplicationUrlFramework::asset('favicon.ico')) . '">
+                <link rel="stylesheet" href="' . HelperFramework::escape(ApplicationUrlFramework::asset('css/index.css')) . '">
             </head>
             <body>
                 <div class="layout">
@@ -249,7 +249,7 @@ final class PageRendererFramework
                     </main>
                 </div>
                 ' . $this->renderAjaxSecurityBootstrap($request) . '
-                <script src="js/index.js"></script>
+                <script src="' . HelperFramework::escape(ApplicationUrlFramework::asset('js/index.js')) . '"></script>
             </body>
         </html>';
     }
@@ -670,7 +670,7 @@ final class PageRendererFramework
 
     private function renderToolbarLogout(SessionAuthenticationService $sessionAuthenticationService): string
     {
-        return '<form class="brand-toolbar-logout-form" method="post" action="/">
+        return '<form class="brand-toolbar-logout-form" method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::path()) . '">
             <input type="hidden" name="auth_action" value="logout">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($sessionAuthenticationService->csrfToken()) . '">
             <button class="brand-toolbar-logout-button" type="submit">Logout</button>
@@ -680,7 +680,7 @@ final class PageRendererFramework
     private function renderSidebarLogout(SessionAuthenticationService $sessionAuthenticationService, bool $showCollapsedLinkInitials): string
     {
         return '<div class="sidebar-footer">
-            <form class="sidebar-logout-form" method="post" action="/">
+            <form class="sidebar-logout-form" method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::path()) . '">
                 <input type="hidden" name="auth_action" value="logout">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($sessionAuthenticationService->csrfToken()) . '">
                 <button class="sidebar-logout-button" type="submit">
@@ -709,7 +709,7 @@ final class PageRendererFramework
 
     private function sidebarItems(SessionAuthenticationService $sessionAuthenticationService, string $currentPageId): array
     {
-        $items = (new NavigationFramework(APP_PAGES, $currentPageId, '/?page='))->build();
+        $items = (new NavigationFramework(APP_PAGES, $currentPageId))->build();
         $currentDeviceId = trim((string)AntiFraudService::instance()->requestValue('Client-Device-ID'));
         $userId = $sessionAuthenticationService->authenticatedUserId($currentDeviceId);
 

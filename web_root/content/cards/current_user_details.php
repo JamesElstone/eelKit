@@ -43,7 +43,7 @@ final class _current_user_detailsCard extends CardBaseFramework
 
         return '
             <p class="helper">Update your display name, email address, mobile number, or password. A current password is required before changing account details.</p>
-            <form method="post" action="?page=users" data-ajax="true" data-invalidate-page="true" class="form-flex-flow" autocomplete="off">
+            <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true" data-invalidate-page="true" class="form-flex-flow" autocomplete="off">
                 ' . $this->hiddenFields($context) . '
                 <input type="hidden" name="action" value="users-update-current-user">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">

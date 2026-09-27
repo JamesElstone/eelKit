@@ -124,6 +124,10 @@ final class AppConfigurationStore
 
     public static function setWebEnvironmentSettings(array $settings): array
     {
+        $externalBaseUrl = (string)($settings['base_url_override'] ?? '');
+        if (trim($externalBaseUrl) !== '') {
+            ApplicationUrlFramework::normalisePublicBaseUrl($externalBaseUrl);
+        }
         $config = self::readStoredConfig();
         $currentInvitation = is_array($config['invitation'] ?? null) ? $config['invitation'] : [];
         $currentReverseProxy = is_array($config['reverse_proxy'] ?? null) ? $config['reverse_proxy'] : [];
@@ -249,6 +253,7 @@ final class AppConfigurationStore
     {
         return [
             'app_name' => 'eelKit Framework',
+            'web' => ['base_path' => '/'],
             'brand-mark' => 'E',
             'app_strapline' => self::DEFAULT_APP_STRAPLINE,
             'app_footer' => '',

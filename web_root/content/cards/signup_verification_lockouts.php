@@ -127,7 +127,7 @@ final class _signup_verification_lockoutsCard extends CardBaseFramework
             return '';
         }
 
-        return '<form method="post" action="?page=logs" data-ajax="true">
+        return '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('logs')) . '" data-ajax="true">
             ' . $this->hiddenFields($context) . '
             <input type="hidden" name="action" value="logs-reset-signup-verification-lockout">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape((string)($context['page']['csrf_token'] ?? '')) . '">

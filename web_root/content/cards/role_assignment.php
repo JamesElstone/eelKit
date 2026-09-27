@@ -81,7 +81,7 @@ final class _role_assignmentCard extends CardBaseFramework
             $rowsHtml .= '<tr>
                 <td>' . HelperFramework::escape((string)($row['card_label'] ?? $cardKey)) . '</td>
                 <td class="cell-fit">
-                    <form method="post" action="?page=roles" data-ajax="true">
+                    <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('roles')) . '" data-ajax="true">
                         ' . $cards . '
                         <input type="hidden" name="action" value="roles-set-card-permission">
                         <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
@@ -102,7 +102,7 @@ final class _role_assignmentCard extends CardBaseFramework
 
         return '
             <div class="card-toolbar">
-                <form method="post" action="?page=roles" data-ajax="true" class="toolbar">
+                <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('roles')) . '" data-ajax="true" class="toolbar">
                     ' . $cards . '
                     <input type="hidden" name="action" value="roles-select-role">
                     <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
@@ -111,7 +111,7 @@ final class _role_assignmentCard extends CardBaseFramework
                         ' . $roleOptionsHtml . '
                     </select>
                 </form>
-                <form method="post" action="?page=roles" data-ajax="true" class="toolbar role-assignment-create">
+                <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('roles')) . '" data-ajax="true" class="toolbar role-assignment-create">
                     ' . $cards . '
                     <input type="hidden" name="action" value="roles-create-role">
                     <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">

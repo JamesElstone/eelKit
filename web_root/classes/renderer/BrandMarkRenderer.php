@@ -47,6 +47,6 @@ final class BrandMarkRenderer
 
     private static function webRootImagePath(string $brandMark): string
     {
-        return str_starts_with($brandMark, '/') ? $brandMark : '/' . ltrim($brandMark, '/');
+        return ApplicationUrlFramework::asset($brandMark);
     }
 }

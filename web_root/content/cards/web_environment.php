@@ -31,7 +31,7 @@ final class _web_environmentCard extends CardBaseFramework
         $reverseProxy = is_array($config['reverse_proxy'] ?? null) ? $config['reverse_proxy'] : [];
         $csrfToken = (string)($context['page']['csrf_token'] ?? '');
 
-        return '<form method="post" action="?page=settings" data-ajax="true" class="form-grid">
+        return '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('settings')) . '" data-ajax="true" class="form-grid">
             ' . $this->hiddenFields($context) . '
             <input type="hidden" name="card_action" value="WebEnvironment">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">
@@ -47,6 +47,7 @@ final class _web_environmentCard extends CardBaseFramework
             ' . $this->uploadLimitsHtml() . '
             <fieldset class="form-row full settings-fieldset">
                 <legend>Web Environment</legend>
+                <p class="helper">Application URL path (configured in secure/app.php): <code>' . HelperFramework::escape(ApplicationUrlFramework::basePath()) . '</code></p>
                 <div class="form-grid">
                     ' . $this->input('web-base-url', 'External Base Web URL (Blank for Automatic)', 'web_base_url_override', (string)($invitation['base_url_override'] ?? ''), 'url') . '
                     ' . $this->textarea(

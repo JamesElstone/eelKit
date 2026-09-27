@@ -351,27 +351,7 @@ final class AccountInviteService
 
     public function buildBaseUrl(RequestFramework $request): string
     {
-        $override = trim((string)AppConfigurationStore::get('invitation.base_url_override', ''));
-        if ($override !== '') {
-            return rtrim($override, '/');
-        }
-
-        $reverseProxy = new ReverseProxyService();
-        $scheme = $reverseProxy->forwardedScheme($request);
-        if ($scheme === '') {
-            $scheme = $request->isSecure() ? 'https' : 'http';
-        }
-
-        $host = $reverseProxy->forwardedHost($request);
-        if ($host === '') {
-            $host = trim((string)$request->header('Host', ''));
-        }
-
-        if ($host === '') {
-            return '';
-        }
-
-        return rtrim($scheme . '://' . $host, '/');
+        return ApplicationUrlFramework::publicBaseUrl($request);
     }
 
     public function settingsEnabled(): bool
@@ -407,6 +387,12 @@ final class AccountInviteService
         $baseUrl = rtrim(trim($baseUrl), '/');
         if ($baseUrl === '') {
             return ['success' => false, 'errors' => ['Application base URL could not be resolved.']];
+        }
+
+        try {
+            $baseUrl = ApplicationUrlFramework::normalisePublicBaseUrl($baseUrl);
+        } catch (InvalidArgumentException $exception) {
+            return ['success' => false, 'errors' => [$exception->getMessage()]];
         }
 
         if (!InterfaceDB::columnExists('user_account_invites', 'token_value')) {

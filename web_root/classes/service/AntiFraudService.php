@@ -148,7 +148,7 @@ final class AntiFraudService
             return $headerValue;
         }
 
-        $cookieName = self::COOKIE_PREFIX . $this->cookieSuffixFromField($fieldName);
+        $cookieName = ApplicationUrlFramework::scopedName(self::COOKIE_PREFIX . $this->cookieSuffixFromField($fieldName));
 
         return $this->normaliseOptionalString($this->request()->cookie($cookieName));
     }

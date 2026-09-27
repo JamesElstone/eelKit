@@ -31,7 +31,7 @@ final class SignupPageRenderer
             'Verify your details',
             'Enter the details your administrator already has for you, including the email address or mobile number where your invite link was sent.',
             $errors,
-            '<form method="post" action="/signup/index.php" autocomplete="on" class="auth-form">
+            '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::path('signup/index.php')) . '" autocomplete="on" class="auth-form">
                 <input type="hidden" name="signup_action" value="verify_identity">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($session->csrfToken()) . '">
                 <label class="auth-label" for="verify_email_address">Email address</label>
@@ -58,7 +58,7 @@ final class SignupPageRenderer
             'Set up your account',
             'Confirm your account details and choose a password.',
             $errors,
-            '<form method="post" action="/signup/index.php" autocomplete="on" class="auth-form">
+            '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::path('signup/index.php')) . '" autocomplete="on" class="auth-form">
                 <input type="hidden" name="signup_action" value="complete_account">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($session->csrfToken()) . '">
                 <label class="auth-label" for="display_name">Display name</label>
@@ -98,8 +98,8 @@ final class SignupPageRenderer
                     <meta charset="utf-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1">
                     <title>' . HelperFramework::escape($title) . ' | ' . HelperFramework::escape($this->appName) . '</title>
-                    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-                    <link rel="stylesheet" href="/css/auth.css">
+                    <link rel="icon" type="image/x-icon" href="' . HelperFramework::escape(ApplicationUrlFramework::asset('favicon.ico')) . '">
+                    <link rel="stylesheet" href="' . HelperFramework::escape(ApplicationUrlFramework::asset('css/auth.css')) . '">
                 </head>
                 <body>
                     <main class="auth-shell">
@@ -114,11 +114,11 @@ final class SignupPageRenderer
                         ' . $beforeMessageHtml . '<p class="auth-copy">' . HelperFramework::escape($message) . '</p>
                         ' . $errorHtml . $formHtml . '
                     </main>
-                    <script src="/js/index.js"></script>
+                    <script src="' . HelperFramework::escape(ApplicationUrlFramework::asset('js/index.js')) . '"></script>
                 </body>
             </html>';
 
-        return preg_replace('/[\r\n]+|(    )/m', '', $rawHtml);
+        return ApplicationHtmlFramework::prepare(preg_replace('/[\r\n]+|(    )/m', '', $rawHtml));
     }
 
     private function mobileCountryCodeOptionsHtml(string $selectedCountryCode): string

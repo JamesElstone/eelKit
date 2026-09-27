@@ -332,7 +332,7 @@ final class AuthController
 
     private function redirectToIndex(): never
     {
-        header('Location: /');
+        header('Location: ' . ApplicationUrlFramework::path());
         exit;
     }
 }

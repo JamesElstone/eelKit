@@ -4,6 +4,12 @@ eelKit is a small PHP application framework for building authenticated internal 
 
 The project is deliberately simple: no package manager is required for the current codebase, the web entrypoint is plain PHP, and the included test runner can be executed directly with PHP.
 
+Applications may also be hosted beneath a configured URL path such as `/reports/`.
+The default remains `/`; no directory moves are required. See
+[application path configuration and Apache deployment](docs/application-paths.md).
+Regression tests for root and subpath installations use the existing PHP test
+runner; no additional package manager or browser dependency is required.
+
 ## Benefits
 
 - Secure account bootstrap flow for the first user.

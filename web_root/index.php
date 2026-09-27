@@ -10,99 +10,33 @@ declare(strict_types=1);
 // Automatic Class Loader
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'classes' . DIRECTORY_SEPARATOR . 'bootstrap.php';
 
-const EEL_INDEX_HTML_COPYRIGHT_HEADER = '<!-- eelKit Framework - Copyright (c) 2026 James Elstone - Licensed under the BSD 3-Clause License - See LICENSE file for details. -->';
-const EEL_INDEX_PROJECT_STYLESHEET_PATH = __DIR__ . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'project.css';
-const EEL_INDEX_PROJECT_STYLESHEET_LINK = '<link rel="stylesheet" href="css/project.css">';
-const EEL_INDEX_PROJECT_SCRIPT_PATH = __DIR__ . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'project.js';
-const EEL_INDEX_PROJECT_SCRIPT_TAG = '<script src="js/project.js"></script>';
-
 function eel_index_send_response(ResponseFramework $response): void
 {
     if (stripos($response->contentType(), 'text/html') !== 0) {
         $response->send();
         return;
     }
-
     ob_start();
     $response->send();
-    $html = (string)ob_get_clean();
-
-    echo eel_index_html_with_project_script(
-        eel_index_html_with_project_stylesheet(eel_index_html_with_copyright_header($html))
-    );
+    echo ApplicationHtmlFramework::prepare((string)ob_get_clean());
 }
 
 function eel_index_html_with_copyright_header(string $html): string
 {
-    if (str_contains($html, EEL_INDEX_HTML_COPYRIGHT_HEADER)) {
-        return $html;
-    }
-
-    $htmlWithHeader = preg_replace(
-        '/(<!DOCTYPE html>)/i',
-        '$1' . PHP_EOL . EEL_INDEX_HTML_COPYRIGHT_HEADER,
-        $html,
-        1
-    );
-
-    if (is_string($htmlWithHeader) && $htmlWithHeader !== $html) {
-        return $htmlWithHeader;
-    }
-
-    return EEL_INDEX_HTML_COPYRIGHT_HEADER . PHP_EOL . $html;
+    return ApplicationHtmlFramework::withCopyright($html);
 }
 
 function eel_index_html_with_project_stylesheet(string $html): string
 {
-    if (!is_file(EEL_INDEX_PROJECT_STYLESHEET_PATH)) {
-        return $html;
-    }
-
-    if (preg_match('/<link\b[^>]*\bhref=(["\'])\/?css\/project\.css\1/i', $html) === 1) {
-        return $html;
-    }
-
-    $htmlWithProjectStylesheet = preg_replace_callback(
-        '/([ \t]*)<\/head>/i',
-        static fn(array $matches): string => $matches[1] . EEL_INDEX_PROJECT_STYLESHEET_LINK
-            . PHP_EOL
-            . $matches[1] . '</head>',
-        $html,
-        1
-    );
-
-    if (is_string($htmlWithProjectStylesheet) && $htmlWithProjectStylesheet !== $html) {
-        return $htmlWithProjectStylesheet;
-    }
-
-    return $html;
+    return ApplicationHtmlFramework::withProjectStylesheet($html);
 }
 
 function eel_index_html_with_project_script(string $html): string
 {
-    if (!is_file(EEL_INDEX_PROJECT_SCRIPT_PATH)) {
-        return $html;
-    }
-
-    if (preg_match('/<script\b[^>]*\bsrc=(["\'])\/?js\/project\.js\1/i', $html) === 1) {
-        return $html;
-    }
-
-    $htmlWithProjectScript = preg_replace_callback(
-        '/([ \t]*)<\/body>/i',
-        static fn(array $matches): string => $matches[1] . EEL_INDEX_PROJECT_SCRIPT_TAG
-            . PHP_EOL
-            . $matches[1] . '</body>',
-        $html,
-        1
-    );
-
-    if (is_string($htmlWithProjectScript) && $htmlWithProjectScript !== $html) {
-        return $htmlWithProjectScript;
-    }
-
-    return $html;
+    return ApplicationHtmlFramework::withProjectScript($html);
 }
+
+ApplicationUrlFramework::basePath();
 
 $appName = trim((string)AppConfigurationStore::get('app_name', 'eelKit Framework'));
 if ($appName === '') {

@@ -10,6 +10,7 @@ declare(strict_types=1);
 final class SessionAuthenticationService
 {
     private const SESSION_NAME = 'ELL_ID';
+    private const APPLICATION_SCOPE_KEY = 'eelkit.application_scope';
     private const AUTH_USER_ID_KEY = 'auth.user_id';
     private const AUTH_DEVICE_ID_KEY = 'auth.device_id';
     private const AUTH_SESSION_TOKEN_HASH_KEY = 'auth.session_token_hash';
@@ -43,14 +44,22 @@ final class SessionAuthenticationService
 
     public function startSession(): void
     {
+        $basePath = ApplicationUrlFramework::basePath();
         if (session_status() === PHP_SESSION_ACTIVE) {
-            return;
+            if ($this->sessionMatchesScope($basePath)) {
+                $_SESSION[self::APPLICATION_SCOPE_KEY] = $basePath;
+                return;
+            }
+            session_abort();
+            session_id('');
+            unset($_COOKIE[ApplicationUrlFramework::scopedName(self::SESSION_NAME)]);
         }
 
         if (headers_sent()) {
-            if (!isset($_SESSION) || !is_array($_SESSION)) {
+            if (!isset($_SESSION) || !is_array($_SESSION) || !$this->sessionMatchesScope($basePath)) {
                 $_SESSION = [];
             }
+            $_SESSION[self::APPLICATION_SCOPE_KEY] = $basePath;
 
             return;
         }
@@ -62,15 +71,31 @@ final class SessionAuthenticationService
 
         session_set_cookie_params([
             'lifetime' => 0,
-            'path' => '/',
+            'path' => $basePath,
             'domain' => '',
             'secure' => $this->cookieSecure(),
             'httponly' => true,
             'samesite' => $this->cookieSameSite(),
         ]);
 
-        session_name(self::SESSION_NAME);
+        session_name(ApplicationUrlFramework::scopedName(self::SESSION_NAME));
         session_start();
+        if (!$this->sessionMatchesScope($basePath)) {
+            // Do not destroy a session owned by another application sharing PHP's session store.
+            session_abort();
+            session_id('');
+            unset($_COOKIE[session_name()]);
+            session_start();
+        }
+        $_SESSION[self::APPLICATION_SCOPE_KEY] = $basePath;
+    }
+
+    private function sessionMatchesScope(string $basePath): bool
+    {
+        if (isset($_SESSION[self::APPLICATION_SCOPE_KEY])) {
+            return $_SESSION[self::APPLICATION_SCOPE_KEY] === $basePath;
+        }
+        return $basePath === '/' || empty($_SESSION);
     }
 
     public function csrfToken(): string

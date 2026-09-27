@@ -46,7 +46,7 @@ final class _application_settingsCard extends CardBaseFramework
         $tableCondensedDefault = !empty($config['table_condensed_default']);
 
         return '
-            <form method="post" action="?page=settings" data-ajax="true" class="form-grid application-settings-form">
+            <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('settings')) . '" data-ajax="true" class="form-grid application-settings-form">
                 ' . $this->hiddenFields($context) . '
                 <input type="hidden" name="card_action" value="ApplicationSettings">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">

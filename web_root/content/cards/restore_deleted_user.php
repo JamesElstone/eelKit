@@ -45,7 +45,7 @@ final class _restore_deleted_userCard extends CardBaseFramework
 
         $csrfToken = (string)($context['page']['csrf_token'] ?? '');
 
-        return '<form method="post" action="?page=users" data-ajax="true" class="form-grid">
+        return '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::page('users')) . '" data-ajax="true" class="form-grid">
             ' . $this->hiddenFields($context) . '
             <input type="hidden" name="action" value="users-restore-deleted-user">
             <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($csrfToken) . '">

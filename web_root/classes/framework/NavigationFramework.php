@@ -14,11 +14,11 @@ final class NavigationFramework
     private readonly string $baseUrl;
     private ?array $availableIconPaths = null;
 
-    public function __construct(string $pagesDirectory, string $currentPageKey, string $baseUrl = '/?page=')
+    public function __construct(string $pagesDirectory, string $currentPageKey, string $baseUrl = '')
     {
         $this->pagesDirectory = rtrim($pagesDirectory, '\\/');
         $this->currentPageKey = trim($currentPageKey);
-        $this->baseUrl = $baseUrl;
+        $this->baseUrl = $baseUrl !== '' ? $baseUrl : ApplicationUrlFramework::path() . '?page=';
     }
 
     public function build(): array
@@ -294,6 +294,6 @@ final class NavigationFramework
             return null;
         }
 
-        return '/' . ltrim(substr($normalisedPath, strlen($normalisedRoot)), '/');
+        return ApplicationUrlFramework::asset(ltrim(substr($normalisedPath, strlen($normalisedRoot)), '/'));
     }
 }

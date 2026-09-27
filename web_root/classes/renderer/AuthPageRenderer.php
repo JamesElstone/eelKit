@@ -65,7 +65,7 @@ final class AuthPageRenderer
             'Sign in',
             'Enter your email address and password to continue.',
             $errors,
-            '<form method="post" autocomplete="on" class="auth-form">
+            '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::path()) . '" autocomplete="on" class="auth-form">
                 <input type="hidden" name="auth_action" value="login">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($sessionAuthenticationService->csrfToken()) . '">
                 <label class="auth-label" for="email_address">Email address</label>
@@ -97,7 +97,7 @@ final class AuthPageRenderer
                 <div class="auth-secret-label">Manual entry secret</div>
                 <code class="auth-secret-value">' . $manualSecret . '</code>
             </div>
-            <form method="post" autocomplete="one-time-code" class="auth-form">
+            <form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::path()) . '" autocomplete="one-time-code" class="auth-form">
                 <input type="hidden" name="auth_action" value="verify_otp_setup">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($sessionAuthenticationService->csrfToken()) . '">
                 <label class="auth-label" for="otp_code">OTP code</label>
@@ -119,7 +119,7 @@ final class AuthPageRenderer
             'Create first account',
             'No users exist yet. Create the first ' . $this->appName . ' user to unlock the app.',
             $errors,
-            '<form method="post" autocomplete="on" class="auth-form">
+            '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::path()) . '" autocomplete="on" class="auth-form">
                 <input type="hidden" name="auth_action" value="create_initial_user">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($sessionAuthenticationService->csrfToken()) . '">
                 <label class="auth-label" for="display_name">Name</label>
@@ -150,7 +150,7 @@ final class AuthPageRenderer
             'Change password',
             'An administrator has requested a password change before two-step verification.',
             $errors,
-            '<form method="post" autocomplete="on" class="auth-form">
+            '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::path()) . '" autocomplete="on" class="auth-form">
                 <input type="hidden" name="auth_action" value="change_required_password">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($sessionAuthenticationService->csrfToken()) . '">
                 <div class="auth-countdown" data-password-requirements-panel data-password-requirements-for="password">
@@ -174,7 +174,7 @@ final class AuthPageRenderer
             'Two-step verification',
             'Enter the six-digit code from your authenticator app.',
             $errors,
-            '<form method="post" autocomplete="one-time-code" class="auth-form">
+            '<form method="post" action="' . HelperFramework::escape(ApplicationUrlFramework::path()) . '" autocomplete="one-time-code" class="auth-form">
                 <input type="hidden" name="auth_action" value="verify_otp">
                 <input type="hidden" name="csrf_token" value="' . HelperFramework::escape($sessionAuthenticationService->csrfToken()) . '">
                 <label class="auth-label" for="otp_code">OTP code</label>
@@ -215,8 +215,8 @@ final class AuthPageRenderer
                     <meta charset="utf-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1">
                     <title>' . $escapedTitle . ' | ' . $escapedAppName . '</title>
-                    <link rel="icon" type="image/x-icon" href="favicon.ico">
-                    <link rel="stylesheet" href="css/auth.css">
+                    <link rel="icon" type="image/x-icon" href="' . HelperFramework::escape(ApplicationUrlFramework::asset('favicon.ico')) . '">
+                    <link rel="stylesheet" href="' . HelperFramework::escape(ApplicationUrlFramework::asset('css/auth.css')) . '">
                 </head>
                 <body>
                     <main class="auth-shell">
@@ -232,10 +232,10 @@ final class AuthPageRenderer
                         ' . $errorHtml . '
                         ' . $formHtml . '
                     </main>
-                    <script src="js/index.js"></script>
+                    <script src="' . HelperFramework::escape(ApplicationUrlFramework::asset('js/index.js')) . '"></script>
                 </body>
             </html>';
 
-        return preg_replace('/[\r\n]+|(    )/m', "", $rawHtml);
+        return ApplicationHtmlFramework::prepare(preg_replace('/[\r\n]+|(    )/m', "", $rawHtml));
     }
 }

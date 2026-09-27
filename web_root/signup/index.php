@@ -9,27 +9,12 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'classes' . DIRECTORY_SEPARATOR . 'bootstrap.php';
 
-const EEL_SIGNUP_HTML_COPYRIGHT_HEADER = '<!-- eelKit Framework - Copyright (c) 2026 James Elstone - Licensed under the BSD 3-Clause License - See LICENSE file for details. -->';
-
 function eel_signup_html_with_copyright_header(string $html): string
 {
-    if (str_contains($html, EEL_SIGNUP_HTML_COPYRIGHT_HEADER)) {
-        return $html;
-    }
-
-    $htmlWithHeader = preg_replace(
-        '/(<!DOCTYPE html>)/i',
-        '$1' . PHP_EOL . EEL_SIGNUP_HTML_COPYRIGHT_HEADER,
-        $html,
-        1
-    );
-
-    if (is_string($htmlWithHeader) && $htmlWithHeader !== $html) {
-        return $htmlWithHeader;
-    }
-
-    return EEL_SIGNUP_HTML_COPYRIGHT_HEADER . PHP_EOL . $html;
+    return ApplicationHtmlFramework::prepare($html);
 }
+
+ApplicationUrlFramework::basePath();
 
 $appName = trim((string)AppConfigurationStore::get('app_name', 'eelKit Framework'));
 if ($appName === '') {
@@ -98,7 +83,7 @@ if ($request->isPost()) {
         );
 
         if (!empty($result['success'])) {
-            header('Location: /index.php');
+            header('Location: ' . ApplicationUrlFramework::path('index.php'));
             return;
         }
 

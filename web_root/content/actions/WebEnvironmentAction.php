@@ -44,6 +44,15 @@ final class WebEnvironmentAction implements ActionInterfaceFramework
             $addedCurrentProxy = !$alreadyTrusted;
         }
 
+        $externalBaseUrl = trim((string)$request->input('web_base_url_override', ''));
+        try {
+            if ($externalBaseUrl !== '') {
+                ApplicationUrlFramework::normalisePublicBaseUrl($externalBaseUrl);
+            }
+        } catch (InvalidArgumentException $exception) {
+            return $this->error($exception->getMessage());
+        }
+
         AppConfigurationStore::setWebEnvironmentSettings([
             'base_url_override' => rtrim(trim((string)$request->input('web_base_url_override', '')), '/'),
             'trusted_proxy_ips' => $trustedProxyIps,
