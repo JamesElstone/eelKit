@@ -496,6 +496,11 @@ final class UserAuthenticationService
 
     private function recordFailedScopedPasswordAttempt(string $emailAddress, ?string $deviceId = null): array
     {
+        return InterfaceDB::writeTransaction(fn(): array => $this->recordFailedScopedPasswordAttemptWithinTransaction($emailAddress, $deviceId));
+    }
+
+    private function recordFailedScopedPasswordAttemptWithinTransaction(string $emailAddress, ?string $deviceId = null): array
+    {
         $now = new DateTimeImmutable('now');
         $user = $this->loadUserByEmailAddress($emailAddress);
         $userId = $user === null ? null : (int)($user['id'] ?? 0);
@@ -504,6 +509,11 @@ final class UserAuthenticationService
             $scopeType = (string)$scope['scope_type'];
             $scopeKey = (string)$scope['scope_key'];
             $this->expireScopedLoginRateLimit($scopeType, $scopeKey);
+            InterfaceDB::execute(
+                'INSERT INTO user_login_rate_limits (email_address,scope_type,scope_key,user_id) VALUES (:email_address,:scope_type,:scope_key,:user_id) '
+                    . (InterfaceDB::driverName() === 'sqlite' ? 'ON CONFLICT (scope_type,scope_key) DO NOTHING' : 'ON DUPLICATE KEY UPDATE id=id'),
+                ['email_address' => $emailAddress, 'scope_type' => $scopeType, 'scope_key' => $scopeKey, 'user_id' => $userId]
+            );
             $existing = $this->loadScopedLoginRateLimitRow($scopeType, $scopeKey);
             $attempts = max(0, (int)($existing['consecutive_failed_password_attempts'] ?? 0)) + 1;
             $windowStartedAt = trim((string)($existing['failed_attempt_window_started_at'] ?? ''));
@@ -542,19 +552,10 @@ final class UserAuthenticationService
             ];
 
             if ($existing === null) {
-                $idColumnsSql = '';
-                $idValuesSql = '';
-
-                if (InterfaceDB::driverName() === 'sqlite') {
-                    $params['id'] = $this->nextLoginRateLimitId();
-                    $idColumnsSql = 'id,';
-                    $idValuesSql = ':id,';
-                }
 
                 InterfaceDB::prepareExecute(
                     'INSERT INTO user_login_rate_limits (
-                        ' . $idColumnsSql . '
-                        email_address,
+                    email_address,
                         scope_type,
                         scope_key,
                         user_id,
@@ -566,8 +567,7 @@ final class UserAuthenticationService
                         lock_reason,
                         lock_expires_at
                     ) VALUES (
-                        ' . $idValuesSql . '
-                        :email_address,
+                    :email_address,
                         :scope_type,
                         :scope_key,
                         :user_id,
@@ -603,10 +603,6 @@ final class UserAuthenticationService
         return $this->loginRateLimitStatus($emailAddress, $deviceId);
     }
 
-    private function nextLoginRateLimitId(): int
-    {
-        return max(1, (int)InterfaceDB::fetchColumn('SELECT COALESCE(MAX(id), 0) + 1 FROM user_login_rate_limits'));
-    }
 
     public function userById(int $userId): ?array
     {
@@ -681,10 +677,10 @@ final class UserAuthenticationService
                 ON users.id = limits.user_id
                 OR users.email_address = limits.email_address
              WHERE limits.locked_at IS NOT NULL
-               AND limits.locked_at <> \'\'
+               AND CAST(limits.locked_at AS CHAR) <> \'\'
                AND (
                    limits.lock_expires_at IS NULL
-                   OR limits.lock_expires_at = \'\'
+                   OR CAST(limits.lock_expires_at AS CHAR) = \'\'
                    OR limits.lock_expires_at > CURRENT_TIMESTAMP
                )
              GROUP BY users.id, users.display_name, users.email_address

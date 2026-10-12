@@ -94,6 +94,18 @@ final class PdoDB
             throw new RuntimeException('Database DSN is not configured in secure/app.php.');
         }
 
+        if (str_starts_with($dsn, 'sqlite:')) {
+            SqliteDB::prerequisites();
+            $dsn = SqliteDB::normaliseDsn($dsn);
+            $path = substr($dsn, 7);
+            if ($path === ':memory:') {
+                throw new RuntimeException('In-memory SQLite is reserved for explicit test fixtures.');
+            }
+            if (!is_file($path)) throw new RuntimeException('SQLite database does not exist. Run setupDb first.');
+            if (!is_writable($path) || !is_writable(dirname($path))) throw new RuntimeException('SQLite database and directory must be writable.');
+            if (isset($dbConfig['sqlite_schema'])) throw new RuntimeException('db.sqlite_schema is a retired test fixture option; run setupDb for schema initialization.');
+        }
+
         $username = (string)($dbConfig['user'] ?? '');
         $password = (string)($dbConfig['pass'] ?? '');
 
@@ -108,9 +120,31 @@ final class PdoDB
             throw new RuntimeException(self::connectionExceptionMessage($dsn, $exception), 0, $exception);
         }
 
-        self::initialiseConfiguredSqliteSchema($pdo, $dbConfig);
+        if (self::driverNameFor($pdo) === 'sqlite') {
+            SqliteDB::configure($pdo, $dbConfig);
+            if (strtolower((string)$pdo->query('PRAGMA journal_mode')->fetchColumn()) !== 'wal') {
+                throw new RuntimeException('SQLite WAL mode is not configured. Run setupDb first.');
+            }
+        } else {
+            self::configureServerClock($pdo);
+        }
 
         return $pdo;
+    }
+
+    /** Align SQL defaults/expiry comparisons with PHP's existing naive timestamp format. */
+    public static function configureServerClock(PDO $pdo): void
+    {
+        $driver = self::driverNameFor($pdo);
+        if ($driver === 'mysql') {
+            $pdo->exec("SET time_zone = '" . (new DateTimeImmutable('now'))->format('P') . "'");
+        } elseif ($driver === 'odbc') {
+            try { $version = (string)$pdo->query('SELECT VERSION()')->fetchColumn(); }
+            catch (PDOException) { return; }
+            if (stripos($version, 'MariaDB') !== false || preg_match('/^\d+\.\d+\.\d+/', $version)) {
+                $pdo->exec("SET time_zone = '" . (new DateTimeImmutable('now'))->format('P') . "'");
+            }
+        }
     }
 
     private static function connectionExceptionMessage(string $dsn, PDOException $exception): string
@@ -140,210 +174,6 @@ final class PdoDB
         }
 
         return strtolower(trim(substr($dsn, 0, $separatorPosition)));
-    }
-
-    private static function initialiseConfiguredSqliteSchema(PDO $pdo, array $dbConfig): void
-    {
-        if (self::driverNameFor($pdo) !== 'sqlite') {
-            return;
-        }
-
-        $schemaPath = trim((string)($dbConfig['sqlite_schema'] ?? ''));
-        if ($schemaPath === '') {
-            return;
-        }
-
-        $schemaPath = self::normaliseConfigPath($schemaPath);
-        if (!is_file($schemaPath)) {
-            throw new RuntimeException('SQLite schema fixture was not found: ' . $schemaPath);
-        }
-
-        $schema = file_get_contents($schemaPath);
-        if (!is_string($schema) || trim($schema) === '') {
-            throw new RuntimeException('SQLite schema fixture is empty: ' . $schemaPath);
-        }
-
-        $pdo->exec(self::sqliteSchemaSqlFor($schema));
-    }
-
-    private static function sqliteSchemaSqlFor(string $schema): string {
-        if (stripos($schema, 'ENGINE=') === false && stripos($schema, 'AUTO_INCREMENT') === false) {
-            return $schema;
-        }
-
-        preg_match_all(
-            '/CREATE\s+TABLE\s+`([^`]+)`\s*\((.*?)\)\s*ENGINE\s*=\s*\w+.*?;/is',
-            $schema,
-            $matches,
-            PREG_SET_ORDER
-        );
-
-        $statements = ['PRAGMA foreign_keys = OFF'];
-        foreach ($matches as $match) {
-            $table = $match[1];
-            $body = $match[2];
-            $definitions = self::splitSqlDefinitions($body);
-            $autoIncrementPrimaryKey = self::autoIncrementPrimaryKeyFromDefinitions($definitions);
-            $tableLines = [];
-            $indexStatements = [];
-
-            foreach ($definitions as $definition) {
-                $converted = self::sqliteTableDefinitionFor($definition, $table, $autoIncrementPrimaryKey);
-                if ($converted === '') {
-                    continue;
-                }
-
-                if (str_starts_with($converted, 'CREATE ')) {
-                    $indexStatements[] = $converted;
-                    continue;
-                }
-
-                $tableLines[] = $converted;
-            }
-
-            $statements[] = 'DROP TABLE IF EXISTS `' . str_replace('`', '``', $table) . '`';
-            $statements[] = "CREATE TABLE `" . str_replace('`', '``', $table) . "` (\n  " . implode(",\n  ", $tableLines) . "\n)";
-            array_push($statements, ...$indexStatements);
-        }
-
-        if (count($statements) === 1) {
-            throw new RuntimeException('No MariaDB CREATE TABLE statements were found in the configured SQLite schema fixture.');
-        }
-
-        $statements[] = 'PRAGMA foreign_keys = ON';
-
-        return implode(";\n", $statements) . ";\n";
-    }
-
-    private static function splitSqlDefinitions(string $body): array {
-        $definitions = [];
-        $definition = '';
-        $quote = null;
-        $depth = 0;
-        $length = strlen($body);
-
-        for ($index = 0; $index < $length; $index++) {
-            $character = $body[$index];
-            $definition .= $character;
-
-            if ($quote !== null) {
-                if ($character === $quote) {
-                    if ($quote === '\'' && $index + 1 < $length && $body[$index + 1] === '\'') {
-                        $definition .= $body[++$index];
-                        continue;
-                    }
-
-                    $quote = null;
-                }
-
-                continue;
-            }
-
-            if ($character === '\'' || $character === '"' || $character === '`') {
-                $quote = $character;
-                continue;
-            }
-
-            if ($character === '(') {
-                $depth++;
-                continue;
-            }
-
-            if ($character === ')' && $depth > 0) {
-                $depth--;
-                continue;
-            }
-
-            if ($character === ',' && $depth === 0) {
-                $definitions[] = trim(substr($definition, 0, -1));
-                $definition = '';
-            }
-        }
-
-        $definition = trim($definition);
-        if ($definition !== '') {
-            $definitions[] = $definition;
-        }
-
-        return $definitions;
-    }
-
-    private static function autoIncrementPrimaryKeyFromDefinitions(array $definitions): ?string
-    {
-        $autoIncrementColumn = null;
-        $primaryKeyColumn = null;
-
-        foreach ($definitions as $definition) {
-            if (
-                preg_match('/^`([^`]+)`\s+.*\bAUTO_INCREMENT\b/i', $definition, $match) === 1
-            ) {
-                $autoIncrementColumn = $match[1];
-                continue;
-            }
-
-            if (
-                preg_match('/^PRIMARY\s+KEY\s+\(`([^`]+)`\)$/i', $definition, $match) === 1
-            ) {
-                $primaryKeyColumn = $match[1];
-            }
-        }
-
-        return $autoIncrementColumn !== null && $autoIncrementColumn === $primaryKeyColumn
-            ? $autoIncrementColumn
-            : null;
-    }
-
-    private static function sqliteTableDefinitionFor(string $definition, string $table, ?string $autoIncrementPrimaryKey = null): string {
-        $definition = trim($definition);
-        if ($definition === '') {
-            return '';
-        }
-
-        if (preg_match('/^UNIQUE\s+KEY\s+`([^`]+)`\s+\((.+)\)$/i', $definition, $match) === 1) {
-            return 'CREATE UNIQUE INDEX `' . $match[1] . '` ON `' . $table . '` (' . $match[2] . ')';
-        }
-
-        if (preg_match('/^KEY\s+`([^`]+)`\s+\((.+)\)$/i', $definition, $match) === 1) {
-            return 'CREATE INDEX `' . $match[1] . '` ON `' . $table . '` (' . $match[2] . ')';
-        }
-
-        if (
-            $autoIncrementPrimaryKey !== null
-            && preg_match('/^PRIMARY\s+KEY\s+\(`' . preg_quote($autoIncrementPrimaryKey, '/') . '`\)$/i', $definition) === 1
-        ) {
-            return '';
-        }
-
-        if (preg_match('/^PRIMARY\s+KEY\s+\((.+)\)$/i', $definition) === 1) {
-            return $definition;
-        }
-
-        if (preg_match('/^CONSTRAINT\s+`[^`]+`\s+(FOREIGN\s+KEY.+)$/i', $definition, $match) === 1) {
-            return $match[1];
-        }
-
-        if (preg_match('/^`[^`]+`/', $definition) !== 1) {
-            return '';
-        }
-
-        if (
-            $autoIncrementPrimaryKey !== null
-            && preg_match('/^`' . preg_quote($autoIncrementPrimaryKey, '/') . '`\s+/i', $definition) === 1
-        ) {
-            return '`' . str_replace('`', '``', $autoIncrementPrimaryKey) . '` INTEGER PRIMARY KEY AUTOINCREMENT';
-        }
-
-        $definition = preg_replace('/\b(?:tinyint|smallint|mediumint|int|bigint)\s*(?:\(\d+\))?\s+unsigned\b/i', 'INTEGER', $definition);
-        $definition = preg_replace('/\b(?:tinyint|smallint|mediumint|int|bigint)\s*(?:\(\d+\))?/i', 'INTEGER', $definition);
-        $definition = preg_replace('/\b(?:var)?char\s*\(\d+\)(?:\s+CHARACTER\s+SET\s+\w+)?(?:\s+COLLATE\s+\w+)?/i', 'TEXT', $definition);
-        $definition = preg_replace('/\blongtext\b/i', 'TEXT', $definition);
-        $definition = preg_replace('/\bdatetime\b/i', 'TEXT', $definition);
-        $definition = preg_replace('/\benum\s*\((?:[^()]|\'[^\']*\')*\)/i', 'TEXT', $definition);
-        $definition = preg_replace('/\s+AUTO_INCREMENT\b/i', '', $definition);
-        $definition = preg_replace('/\s+ON\s+UPDATE\s+current_timestamp\(\)/i', '', $definition);
-        $definition = preg_replace('/\bDEFAULT\s+current_timestamp\(\)/i', 'DEFAULT CURRENT_TIMESTAMP', $definition);
-
-        return trim((string)$definition);
     }
 
     private static function dbConfig(): array {

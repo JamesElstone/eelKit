@@ -13,6 +13,8 @@ final class InterfaceDB
     public const TABLE_ROW_COUNT_TABLE_MISSING = -2;
 
     private static ?PDO $connection = null;
+    private static bool $immediateTransaction = false;
+    private static int $writeSavepoint = 0;
 
     /** @var SplObjectStorage<PDO, array{tables: array<string, bool>, columns: array<string, bool}>|null */
     private static ?SplObjectStorage $metadataCache = null;
@@ -44,26 +46,38 @@ final class InterfaceDB
 
     public static function beginTransaction(): bool
     {
+        if (self::inTransaction()) throw new RuntimeException('A database transaction is already open.');
+        if (self::driverName() === 'sqlite') return self::beginWriteTransaction();
         return self::connection()->beginTransaction();
     }
 
     public static function commit(): bool
     {
+        if (self::$immediateTransaction) {
+            self::connection()->exec('COMMIT');
+            self::$immediateTransaction = false;
+            return true;
+        }
         return self::connection()->commit();
     }
 
     public static function rollBack(): bool
     {
-        if (!self::connection()->inTransaction()) {
+        if (!self::inTransaction()) {
             return false;
         }
 
+        if (self::$immediateTransaction) {
+            self::connection()->exec('ROLLBACK');
+            self::$immediateTransaction = false;
+            return true;
+        }
         return self::connection()->rollBack();
     }
 
     public static function inTransaction(): bool
     {
-        return self::connection()->inTransaction();
+        return self::$immediateTransaction || self::connection()->inTransaction();
     }
 
     public static function transaction(callable $callback): mixed
@@ -91,6 +105,52 @@ final class InterfaceDB
         }
     }
 
+    /** Acquire SQLite's writer lock before reading data that will be mutated. */
+    public static function beginWriteTransaction(): bool
+    {
+        if (self::inTransaction()) throw new RuntimeException('A database transaction is already open.');
+        if (self::driverName() !== 'sqlite') return self::beginTransaction();
+        self::connection()->exec('BEGIN IMMEDIATE');
+        self::$immediateTransaction = true;
+        return true;
+    }
+
+    public static function writeTransaction(callable $callback): mixed
+    {
+        if (self::inTransaction()) {
+            if (self::driverName() === 'sqlite' && !self::$immediateTransaction) {
+                throw new RuntimeException('Cannot upgrade a deferred transaction to a SQLite write transaction.');
+            }
+            $savepoint = 'eelkit_write_' . ++self::$writeSavepoint;
+            self::connection()->exec('SAVEPOINT ' . $savepoint);
+            try {
+                $result = $callback();
+                self::connection()->exec('RELEASE SAVEPOINT ' . $savepoint);
+                return $result;
+            } catch (Throwable $exception) {
+                self::connection()->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+                self::connection()->exec('RELEASE SAVEPOINT ' . $savepoint);
+                throw $exception;
+            }
+        }
+        self::beginWriteTransaction();
+        try {
+            $result = $callback();
+            self::commit();
+            return $result;
+        } catch (Throwable $exception) {
+            if (self::inTransaction()) self::rollBack();
+            throw $exception;
+        }
+    }
+
+    public static function lastInsertId(): int
+    {
+        return (int)(self::isOdbcDriver()
+            ? self::fetchColumn('SELECT LAST_INSERT_ID()')
+            : self::connection()->lastInsertId());
+    }
+
     public static function driverName(): string
     {
         return self::_driverNameOn(self::connection());
@@ -104,7 +164,7 @@ final class InterfaceDB
     public static function getServerVersion(): string
     {
         try {
-            $stmt = self::query('SELECT VERSION()');
+            $stmt = self::query(self::driverName() === 'sqlite' ? 'SELECT sqlite_version()' : 'SELECT VERSION()');
             if ($stmt instanceof PDOStatement) {
                 $version = trim((string)$stmt->fetchColumn());
                 if ($version !== '') {
@@ -140,6 +200,18 @@ final class InterfaceDB
     public static function execute(string $sql, array $params = []): int
     {
         return self::prepareExecute($sql, $params)->rowCount();
+    }
+
+    /** Execute native SQLite schema scripts, including complete trigger bodies. */
+    public static function executeScript(string $sql): void
+    {
+        if (self::driverName() !== 'sqlite') throw new RuntimeException('Native schema scripts require SQLite.');
+        try {
+            self::connection()->exec($sql);
+            PdoDB::logSql($sql);
+        } finally {
+            self::clearMetadataCache();
+        }
     }
 
     public static function clearMetadataCache(): void

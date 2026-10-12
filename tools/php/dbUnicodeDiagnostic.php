@@ -50,6 +50,10 @@ function eel_db_unicode_diagnostic_dsn_status(string $dsn, string $driver): stri
 
 function eel_db_unicode_diagnostic_character_sets(): array
 {
+    if (InterfaceDB::driverName() === 'sqlite') {
+        $encoding = (string)InterfaceDB::fetchColumn('PRAGMA encoding');
+        return ['server' => $encoding, 'connection' => $encoding];
+    }
     $result = ['server' => 'unavailable', 'connection' => 'unavailable'];
     try {
         foreach (InterfaceDB::fetchAll("SHOW VARIABLES WHERE Variable_name IN ('character_set_server', 'character_set_connection')") as $row) {
@@ -85,7 +89,9 @@ function eel_db_unicode_diagnostic_run(): array
     $json = json_encode(['samples' => $samples], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 
     try {
-        InterfaceDB::execute("CREATE TEMPORARY TABLE `$table` (sample_key VARCHAR(32) PRIMARY KEY, value_text LONGTEXT NOT NULL, payload_json LONGTEXT NOT NULL) CHARACTER SET utf8mb4");
+        InterfaceDB::execute(InterfaceDB::driverName() === 'sqlite'
+            ? "CREATE TEMPORARY TABLE `$table` (sample_key TEXT PRIMARY KEY, value_text TEXT NOT NULL, payload_json TEXT NOT NULL)"
+            : "CREATE TEMPORARY TABLE `$table` (sample_key VARCHAR(32) PRIMARY KEY, value_text LONGTEXT NOT NULL, payload_json LONGTEXT NOT NULL) CHARACTER SET utf8mb4");
         foreach ($samples as $key => $value) {
             InterfaceDB::execute("INSERT INTO `$table` (sample_key, value_text, payload_json) VALUES (?, ?, ?)", [$key, $value, $json]);
             InterfaceDB::execute("UPDATE `$table` SET value_text = ? WHERE sample_key = ?", [$value, $key]);
@@ -110,7 +116,9 @@ function eel_db_unicode_diagnostic_run(): array
         return $result;
     } finally {
         try {
-            InterfaceDB::execute("DROP TEMPORARY TABLE IF EXISTS `$table`");
+            InterfaceDB::execute(InterfaceDB::driverName() === 'sqlite'
+                ? "DROP TABLE IF EXISTS temp.`$table`"
+                : "DROP TEMPORARY TABLE IF EXISTS `$table`");
         } catch (Throwable) {
         }
     }
@@ -135,7 +143,7 @@ function eel_db_unicode_diagnostic_main(): int
         return 0;
     } catch (Throwable $exception) {
         fwrite(STDERR, 'Unicode diagnostic failed: ' . $exception->getMessage() . PHP_EOL);
-        fwrite(STDERR, 'Confirm MariaDB/ODBC CHARSET=utf8mb4 and CREATE TEMPORARY TABLES permission, then rerun this tool.' . PHP_EOL);
+        fwrite(STDERR, 'Confirm the database driver, Unicode configuration, and temporary-table permissions, then rerun this tool.' . PHP_EOL);
         return 1;
     }
 }

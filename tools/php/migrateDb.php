@@ -24,6 +24,14 @@ function eel_run_migration_tool(string $schemaFile, string $migrationsDirectory)
     $currentMigration = '';
 
     try {
+        if (InterfaceDB::driverName() === 'sqlite') {
+            if (realpath($schemaFile) === realpath(dirname(__DIR__, 2) . '/db_schema/eelKit.schema.sql')) {
+                $schemaFile = dirname($schemaFile) . '/sqlite/eelKit.schema.sql';
+                $migrationsDirectory = dirname($migrationsDirectory) . '/sqlite/migrations';
+            }
+            SqliteMigrationDB::run($schemaFile, $migrationsDirectory);
+            return 0;
+        }
         eel_migration_hydrate_empty_database($schemaFile);
         ensureSchemaMigrationsTable();
         $applied = appliedMigrations();
@@ -198,8 +206,51 @@ function eel_migration_execute_sql_file(string $file, string $readErrorMessage):
     }
 
     foreach (splitMigrationSql($sql) as $statement) {
-        InterfaceDB::execute($statement);
+        $statement = eel_migration_sql_for_server($statement);
+        if ($statement !== '') InterfaceDB::execute($statement);
     }
+}
+
+/** Keep shared migration files intact while supporting MySQL's ALTER syntax. */
+function eel_migration_sql_for_server(string $sql): string
+{
+    if (InterfaceDB::driverName() === 'sqlite' || stripos(InterfaceDB::getServerVersion(), 'MariaDB') !== false) return $sql;
+    if (!preg_match('/^ALTER\s+TABLE\s+(`?\w+`?)\s+(.+)$/is', $sql, $match)) return $sql;
+    $table = trim($match[1], '`');
+    $operations = []; $current = ''; $depth = 0; $quote = null;
+    $body = $match[2];
+    for ($i = 0; $i < strlen($body); $i++) {
+        $char = $body[$i];
+        if ($quote !== null) {
+            $current .= $char;
+            if ($char === '\\' && isset($body[$i + 1])) $current .= $body[++$i];
+            elseif ($char === $quote) {
+                if (($body[$i + 1] ?? '') === $quote) $current .= $body[++$i];
+                else $quote = null;
+            }
+        } elseif ($char === "'" || $char === '"' || $char === '`') { $quote = $char; $current .= $char; }
+        elseif ($char === '(') { $depth++; $current .= $char; }
+        elseif ($char === ')') { $depth--; $current .= $char; }
+        elseif ($char === ',' && $depth === 0) { $operations[] = trim($current); $current = ''; }
+        else $current .= $char;
+    }
+    $operations[] = trim($current);
+    $adapted = [];
+    foreach ($operations as $operation) {
+        if (preg_match('/^ADD COLUMN IF NOT EXISTS (`?\w+`?)\b/i', $operation, $column)) {
+            if (InterfaceDB::columnExists($table, trim($column[1], '`'))) continue;
+            $operation = preg_replace('/^ADD COLUMN IF NOT EXISTS /i', 'ADD COLUMN ', $operation);
+        } elseif (preg_match('/^DROP COLUMN IF EXISTS (`?\w+`?)\b/i', $operation, $column)) {
+            if (!InterfaceDB::columnExists($table, trim($column[1], '`'))) continue;
+            $operation = preg_replace('/^DROP COLUMN IF EXISTS /i', 'DROP COLUMN ', $operation);
+        } elseif (preg_match('/^DROP CONSTRAINT IF EXISTS (`?\w+`?)$/i', $operation, $constraint)) {
+            $exists = InterfaceDB::fetchColumn("SELECT COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND table_name=:table AND constraint_name=:name AND constraint_type='CHECK'", ['table' => $table, 'name' => trim($constraint[1], '`')]);
+            if (!(int)$exists) continue;
+            $operation = 'DROP CHECK ' . $constraint[1];
+        }
+        $adapted[] = $operation;
+    }
+    return $adapted === [] ? '' : 'ALTER TABLE ' . $match[1] . ' ' . implode(', ', $adapted);
 }
 
 function splitMigrationSql(string $sql): array

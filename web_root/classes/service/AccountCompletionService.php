@@ -129,34 +129,50 @@ final class AccountCompletionService
             return ['success' => false, 'errors' => [$exception->getMessage()]];
         }
 
-        InterfaceDB::transaction(function () use ($userId, $displayName, $emailAddress, $normalisedMobile, $passwordHash, $inviteId): void {
-            InterfaceDB::prepareExecute(
-                'UPDATE users
-                 SET display_name = :display_name,
-                     email_address = :email_address,
-                     mobile_number = :mobile_number,
-                     password_hash = :password_hash,
-                     must_change_password = 0,
-                     is_active = 1,
-                     account_status = :account_status,
-                     account_completed_at = CURRENT_TIMESTAMP,
-                     password_changed_at = CURRENT_TIMESTAMP,
-                     updated_at = CURRENT_TIMESTAMP
-                 WHERE id = :id
-                   AND account_status = :pending_status',
-                [
-                    'id' => $userId,
-                    'display_name' => $displayName,
-                    'email_address' => $emailAddress,
-                    'mobile_number' => $normalisedMobile !== '' ? $normalisedMobile : null,
-                    'password_hash' => $passwordHash,
-                    'account_status' => 'active',
-                    'pending_status' => 'pending_invitation',
-                ]
-            );
+        try {
+            InterfaceDB::writeTransaction(function () use ($userId, $displayName, $emailAddress, $normalisedMobile, $passwordHash, $inviteId): void {
+                // Claim the one-time invitation under the writer lock before changing credentials.
+                $claimed = InterfaceDB::execute(
+                    "UPDATE user_account_invites SET status = 'completed'
+                     WHERE id = :id AND user_id = :user_id AND purpose = 'account_completion'
+                       AND status IN ('pending','sent','opened','verified')
+                       AND used_at IS NULL AND revoked_at IS NULL AND expires_at >= CURRENT_TIMESTAMP",
+                    ['id' => $inviteId, 'user_id' => $userId]
+                );
+                if ($claimed !== 1) throw new UnexpectedValueException(self::PUBLIC_TOKEN_ERROR);
+                $changed = InterfaceDB::execute(
+                    'UPDATE users
+                     SET display_name = :display_name,
+                         email_address = :email_address,
+                         mobile_number = :mobile_number,
+                         password_hash = :password_hash,
+                         must_change_password = 0,
+                         is_active = 1,
+                         account_status = :account_status,
+                         account_completed_at = CURRENT_TIMESTAMP,
+                         password_changed_at = CURRENT_TIMESTAMP,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = :id
+                       AND account_status = :pending_status
+                       AND (password_hash IS NULL OR password_hash = \'\')',
+                    [
+                        'id' => $userId,
+                        'display_name' => $displayName,
+                        'email_address' => $emailAddress,
+                        'mobile_number' => $normalisedMobile !== '' ? $normalisedMobile : null,
+                        'password_hash' => $passwordHash,
+                        'account_status' => 'active',
+                        'pending_status' => 'pending_invitation',
+                    ]
+                );
 
-            $this->inviteService->markCompleted($inviteId);
-        });
+                if ($changed !== 1) throw new UnexpectedValueException(self::PUBLIC_TOKEN_ERROR);
+
+                $this->inviteService->markCompleted($inviteId);
+            });
+        } catch (UnexpectedValueException) {
+            return ['success' => false, 'errors' => [self::PUBLIC_TOKEN_ERROR]];
+        }
 
         UserAuthenticationService::forgetUserByIdCache($userId);
         $this->recordAudit($userId, null, 'invite_completed', 'The invited user completed account setup.', [

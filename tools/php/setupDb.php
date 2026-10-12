@@ -166,6 +166,16 @@ function eel_run_database_setup_tool(string $schemaFile, string $migrationsDirec
         return 1;
     }
 
+    try {
+        $dsn = (string)AppConfigurationStore::get('db.dsn', '');
+        if (str_starts_with($dsn, 'sqlite:') && !$setupArguments['migrate_only']) {
+            SqliteDB::createDatabase($dsn);
+        }
+    } catch (Throwable $exception) {
+        fwrite(STDERR, 'SQLite setup failed: ' . $exception->getMessage() . PHP_EOL);
+        return 1;
+    }
+
     $migrationExitCode = eel_run_migration_tool($schemaFile, $migrationsDirectory);
     if ($migrationExitCode !== 0) {
         return $migrationExitCode;

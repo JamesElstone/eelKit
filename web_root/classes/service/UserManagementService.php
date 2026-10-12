@@ -489,7 +489,7 @@ final class UserManagementService
 
         $resolvedOtpRequired = $this->newUserOtpRequiredDefault($otpRequired);
 
-        InterfaceDB::transaction(function () use ($input, $roleId, $resolvedOtpRequired): void {
+        $userId = InterfaceDB::writeTransaction(function () use ($input, $roleId, $resolvedOtpRequired): int {
             InterfaceDB::prepareExecute(
                 'INSERT INTO users (
                     display_name,
@@ -519,9 +519,8 @@ final class UserManagementService
                     'role_id' => $roleId,
                 ]
             );
+            return InterfaceDB::lastInsertId();
         });
-
-        $userId = (int)InterfaceDB::fetchColumn('SELECT COALESCE(MAX(id), 0) FROM users');
         if ($userId <= 0) {
             return ['success' => false, 'errors' => ['The invited user was created but could not be resolved.'], 'user_id' => 0];
         }

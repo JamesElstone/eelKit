@@ -19,6 +19,32 @@ The baseline includes the `schema_migrations` table and marks the initial migrat
 
 ## Migrations
 
+SQLite uses `sqlite/eelKit.schema.sql`, `sqlite/migrations/`, and
+`sqlite/schema-states.json`. The CLI selects these automatically. MySQL/MariaDB
+retain the existing baseline and migration directory. Both backends use the
+same logical migration filenames.
+
+Every new migration needs a native SQLite counterpart and a matching baseline
+update. SQLite table rebuilds create a replacement table, copy common columns,
+drop/rename, and recreate framework indexes and triggers. The runner preserves
+issued ID sequences and downstream indexes/triggers, validates the expected
+shape and foreign keys, and rolls back the entire upgrade run on failure.
+Missing or noncontiguous migration history is rejected rather than guessed.
+
+After editing native SQLite migrations, regenerate the shape manifest using an
+isolated in-memory database (this does not read application configuration):
+
+```sh
+php tools/php/buildSqliteSchemaStates.php --write
+php web_root/tests/index.php --strict-skips
+```
+
+The initial SQLite migration is a complete historical baseline, so every
+subsequent migration boundary can be tested. Fresh setup installs the current
+baseline and marks all included migrations applied. Run migrations only through
+the supplied tools; standalone SQL clients need eelKit's custom collation and
+functions to enforce the same schema semantics.
+
 `migrations/` contains one SQL file per schema change. Files are applied in filename order, and each applied filename is recorded in `schema_migrations`.
 
 Current naming style:

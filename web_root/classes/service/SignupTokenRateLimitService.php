@@ -34,6 +34,11 @@ final class SignupTokenRateLimitService
 
     public function recordFailedToken(RequestFramework $request): array
     {
+        return InterfaceDB::writeTransaction(fn(): array => $this->recordFailedTokenWithinTransaction($request));
+    }
+
+    private function recordFailedTokenWithinTransaction(RequestFramework $request): array
+    {
         $clientIp = $this->clientIp($request);
         if ($clientIp === '' || !InterfaceDB::tableExists(self::TABLE_NAME)) {
             return $this->emptyStatus($clientIp);
@@ -41,6 +46,11 @@ final class SignupTokenRateLimitService
 
         $now = new DateTimeImmutable('now');
         $this->expireClientBlock($clientIp);
+        InterfaceDB::execute(
+            'INSERT INTO signup_token_rate_limits (client_ip) VALUES (:client_ip) '
+                . (InterfaceDB::driverName() === 'sqlite' ? 'ON CONFLICT (client_ip) DO NOTHING' : 'ON DUPLICATE KEY UPDATE id=id'),
+            ['client_ip' => $clientIp]
+        );
         $existing = $this->rowForClientIp($clientIp);
         $windowStartedAt = $this->currentWindowStartedAt($existing, $now);
         $attempts = $this->withinWindow($windowStartedAt, $now)
@@ -68,17 +78,9 @@ final class SignupTokenRateLimitService
         ];
 
         if ($existing === null) {
-            $idColumnsSql = '';
-            $idValuesSql = '';
-            if (InterfaceDB::driverName() === 'sqlite') {
-                $params['id'] = $this->nextId();
-                $idColumnsSql = 'id,';
-                $idValuesSql = ':id,';
-            }
 
             InterfaceDB::prepareExecute(
                 'INSERT INTO signup_token_rate_limits (
-                    ' . $idColumnsSql . '
                     client_ip,
                     failed_attempts,
                     window_started_at,
@@ -86,7 +88,6 @@ final class SignupTokenRateLimitService
                     blocked_at,
                     block_expires_at
                 ) VALUES (
-                    ' . $idValuesSql . '
                     :client_ip,
                     :failed_attempts,
                     :window_started_at,
@@ -244,8 +245,4 @@ final class SignupTokenRateLimitService
         return max(0, $target->getTimestamp() - $now->getTimestamp());
     }
 
-    private function nextId(): int
-    {
-        return max(1, (int)InterfaceDB::fetchColumn('SELECT COALESCE(MAX(id), 0) + 1 FROM signup_token_rate_limits'));
-    }
 }

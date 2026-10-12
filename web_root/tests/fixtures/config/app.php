@@ -17,7 +17,7 @@ return array (
     'user' => '',
     'pass' => '',
     'logfile' => '',
-    'sqlite_schema' => '../db_schema/eelKit.schema.sql',
+    'sqlite_busy_timeout_ms' => 5000,
   ),
   'developer_options' => true,
   'trace' => 

@@ -224,7 +224,8 @@ function eel_set_db_config_build_dsn(array $settings): string
             throw new RuntimeException('SQLite path cannot be empty.');
         }
 
-        return 'sqlite:' . $path;
+        SqliteDB::prerequisites();
+        return SqliteDB::normaliseDsn('sqlite:' . $path);
     }
 
     $dsn = trim((string)($settings['dsn'] ?? ''));
@@ -351,7 +352,8 @@ function eel_set_db_config_run_tool(array $argv): int
         $driver = null;
         if ($arguments['dsn'] !== null && trim((string)$arguments['dsn']) !== '') {
             $dsn = (string)$arguments['dsn'];
-            $driver = 'custom';
+            $driver = str_starts_with($dsn, 'sqlite:') ? 'sqlite' : 'custom';
+            if ($driver === 'sqlite') { SqliteDB::prerequisites(); $dsn = SqliteDB::normaliseDsn($dsn); }
         } else {
             $settings = $arguments['driver'] === null
                 ? eel_set_db_config_prompt_dsn_builder()

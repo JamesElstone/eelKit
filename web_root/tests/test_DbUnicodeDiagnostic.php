@@ -47,3 +47,10 @@ $harness->check('dbUnicodeDiagnostic.php', 'creates a byte-stable Unicode JSON p
     $harness->assertTrue(eel_db_unicode_diagnostic_same_utf8($json, $json));
     $harness->assertSame(hash('sha256', $json), hash('sha256', $json));
 });
+
+$harness->check('dbUnicodeDiagnostic.php', 'round trips Unicode and JSON through the active backend', function () use ($harness): void {
+    $result = eel_db_unicode_diagnostic_run();
+    $harness->assertTrue($result['round_trip']);
+    $harness->assertSame(InterfaceDB::driverName(), $result['driver']);
+    $harness->assertTrue($result['json_sha256'] !== '');
+});

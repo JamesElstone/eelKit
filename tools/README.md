@@ -19,6 +19,33 @@ Run the wrapper that matches your shell from the project root. The wrappers reso
 - PHP must be available on your `PATH`.
 - Database-related tools require a valid application configuration in `secure/app.php`.
 - Git-related tools require Git to be available on your `PATH`.
+- SQLite requires PHP `pdo_sqlite`, `intl`, and linked SQLite 3.51.3 or newer.
+
+## Database backend parity tests
+
+The application suite uses an explicitly initialized SQLite fixture and isolated
+per-process configuration. Run `php web_root/tests/index.php --strict-skips`.
+
+To run the same suite and exhaustive Unicode weight comparisons through an
+existing saved MariaDB ODBC DSN:
+
+```sh
+php tools/php/testDatabaseBackends.php --odbc=eelKit
+```
+
+The test runner creates random `eelkit_test_` databases and removes them in a
+`finally` block. The DSN account needs CREATE/DROP DATABASE permission. Its saved
+credentials are used directly and never copied to files. The test connection
+sets CHARSET=utf8mb4 without modifying the saved DSN.
+
+For native MySQL/MariaDB connections, `--config=<existing local PHP file>` accepts
+a map of backend names to `dsn`, `user`, and `pass`. It passes the original file
+path to child processes; it does not save or copy credentials. An already-running
+isolated MySQL server initialized without a password can instead be tested with
+`--mysql-isolated-port=<port>`; the tool does not start or stop servers.
+
+All configured backends must pass with zero unexpected skips before release.
+Database transfer between engines is not part of setup or the migration tools.
 
 ## setupDb
 

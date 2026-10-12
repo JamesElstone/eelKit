@@ -10,7 +10,14 @@ declare(strict_types=1);
 define('APP_ROOT', rtrim((string)(realpath(dirname(__DIR__, 2)) ?: dirname(__DIR__, 2)), '\\/') . DIRECTORY_SEPARATOR);
 define('PROJECT_ROOT', rtrim(dirname(APP_ROOT), '\\/') . DIRECTORY_SEPARATOR);
 define('APP_CLASSES', APP_ROOT . 'classes' . DIRECTORY_SEPARATOR);
-define('APP_CONFIG', APP_ROOT . 'tests' . DIRECTORY_SEPARATOR . 'fixtures' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR);
+$testConfigDirectory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'eelkit-config-' . bin2hex(random_bytes(8));
+if (!mkdir($testConfigDirectory, 0700)) throw new RuntimeException('Could not create isolated test configuration.');
+copy(APP_ROOT . 'tests/fixtures/config/app.php', $testConfigDirectory . '/app.php');
+define('APP_CONFIG', $testConfigDirectory . DIRECTORY_SEPARATOR);
+register_shutdown_function(static function () use ($testConfigDirectory): void {
+    foreach (glob($testConfigDirectory . '/*') ?: [] as $file) if (is_file($file)) unlink($file);
+    rmdir($testConfigDirectory);
+});
 define('APP_CONTENT', APP_ROOT . 'content' . DIRECTORY_SEPARATOR);
 define('APP_CARDS', APP_CONTENT . 'cards' . DIRECTORY_SEPARATOR);
 define('APP_PAGES', APP_CONTENT . 'pages' . DIRECTORY_SEPARATOR);
@@ -244,3 +251,6 @@ if (!function_exists('eel_developer_options_enabled')) {
         }
     }
 }
+
+require_once __DIR__ . '/DatabaseFixture.php';
+eel_test_database_connection();

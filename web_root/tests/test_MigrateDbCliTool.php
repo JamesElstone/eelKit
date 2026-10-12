@@ -115,9 +115,9 @@ $harness->check('setDbConfig.php', 'builds DSNs for supported database choices',
         'database' => 'eelkit',
     ]));
 
-    $harness->assertSame('sqlite:../secure/eelkit.sqlite', eel_set_db_config_build_dsn([
+    $harness->assertSame('sqlite:' . realpath(dirname(__DIR__, 2) . '/secure') . DIRECTORY_SEPARATOR . 'eelkit.sqlite', eel_set_db_config_build_dsn([
         'driver' => 'sqlite',
-        'sqlite_path' => '../secure/eelkit.sqlite',
+        'sqlite_path' => 'secure/eelkit.sqlite',
     ]));
 
     $harness->assertSame('pgsql:host=localhost;dbname=eelkit', eel_set_db_config_build_dsn([

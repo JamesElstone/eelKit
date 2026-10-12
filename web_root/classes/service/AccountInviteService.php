@@ -234,6 +234,11 @@ final class AccountInviteService
 
     public function recordVerificationFailure(int $inviteId): array
     {
+        return InterfaceDB::writeTransaction(fn(): array => $this->recordVerificationFailureWithinTransaction($inviteId));
+    }
+
+    private function recordVerificationFailureWithinTransaction(int $inviteId): array
+    {
         $invite = $this->inviteById($inviteId);
         if ($invite === null) {
             return ['locked' => false, 'failed_attempts' => 0];
@@ -410,7 +415,7 @@ final class AccountInviteService
             $metadata = $this->userSessionService->buildRequestMetadata();
             $created = true;
 
-            InterfaceDB::transaction(function () use ($userId, $tokenHash, $rawToken, $expiresAt, $actorUserId, $metadata): void {
+            InterfaceDB::writeTransaction(function () use ($userId, $tokenHash, $rawToken, $expiresAt, $actorUserId, $metadata): void {
                 InterfaceDB::prepareExecute(
                     'UPDATE user_account_invites
                      SET status = :revoked_status,
@@ -732,7 +737,7 @@ final class AccountInviteService
             'SELECT *
              FROM user_account_invites
              WHERE id = :id
-             LIMIT 1',
+             LIMIT 1' . (InterfaceDB::inTransaction() && InterfaceDB::driverName() !== 'sqlite' ? ' FOR UPDATE' : ''),
             ['id' => $inviteId]
         );
 

@@ -234,7 +234,7 @@ file_logs
 Allow the PHP user to write to `secure` and `file_logs`:
 
 ```sh
-chown -R james.elstone:www /usr/local/eelKit
+chown -R example_user:www /usr/local/eelKit
 chmod 775 /usr/local/eelKit/secure /usr/local/eelKit/file_logs
 find /usr/local/eelKit/secure /usr/local/eelKit/file_logs -type f \
   -exec chmod 664 {} +

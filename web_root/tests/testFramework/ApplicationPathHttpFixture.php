@@ -12,7 +12,7 @@ if (PHP_SAPI === 'cli' && ($argv[1] ?? '') === 'seed') {
     [$script, $command, $directory, $configuredBase, $origin] = $argv;
     $config = [
         'app_name' => 'HTTP path fixture', 'developer_options' => true,
-        'db' => ['dsn' => 'sqlite:' . $directory . '/secure/test.sqlite', 'sqlite_schema' => '../db_schema/eelKit.schema.sql'],
+        'db' => ['dsn' => 'sqlite:' . $directory . '/secure/test.sqlite'],
         'session' => ['cookie_secure' => false],
         'smtp' => ['enabled' => true, 'development_mode' => true],
         'sms' => ['enabled' => true, 'development_mode' => true],
@@ -21,6 +21,9 @@ if (PHP_SAPI === 'cli' && ($argv[1] ?? '') === 'seed') {
     if ($configuredBase !== 'omitted') $config['web']['base_path'] = $configuredBase;
     file_put_contents($directory . '/secure/app.php', '<?php return ' . var_export($config, true) . ';');
     require $directory . '/web_root/classes/bootstrap.php';
+    SqliteDB::createDatabase($config['db']['dsn']);
+    require_once __DIR__ . '/DatabaseFixture.php';
+    eel_test_database_fixture(new PDO($config['db']['dsn'], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]));
     $auth = new UserAuthenticationService();
     $user = $auth->createUser('Path Tester', 'tester@example.test', 'HTTP Test Password 123!', true, '', false);
     if (empty($user['success'])) throw new RuntimeException(json_encode($user));
@@ -34,8 +37,6 @@ if (PHP_SAPI === 'cli' && ($argv[1] ?? '') === 'seed') {
     foreach ([$invite, $email, $sms] as $delivery) {
         if (empty($delivery['success'])) throw new RuntimeException(json_encode($delivery));
     }
-    // The existing SQLite schema fixture recreates tables; seed it once, not on each HTTP request.
-    unset($config['db']['sqlite_schema']);
     file_put_contents($directory . '/secure/app.php', '<?php return ' . var_export($config, true) . ';');
     echo json_encode(['link' => $invite['link'], 'email' => $email['link'], 'sms' => $sms['link']]);
     return;

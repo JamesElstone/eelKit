@@ -151,6 +151,11 @@ final class SignupVerificationRateLimitService
 
     private function recordFailedScope(string $scopeType, string $scopeKey, string $scopeLabel): array
     {
+        return InterfaceDB::writeTransaction(fn(): array => $this->recordFailedScopeWithinTransaction($scopeType, $scopeKey, $scopeLabel));
+    }
+
+    private function recordFailedScopeWithinTransaction(string $scopeType, string $scopeKey, string $scopeLabel): array
+    {
         $scopeType = $this->normaliseScopeType($scopeType);
         $scopeKey = trim($scopeKey);
         $scopeLabel = mb_substr(trim($scopeLabel), 0, 80);
@@ -160,6 +165,11 @@ final class SignupVerificationRateLimitService
 
         $now = new DateTimeImmutable('now');
         $this->expireScopeBlock($scopeType, $scopeKey);
+        InterfaceDB::execute(
+            'INSERT INTO signup_verification_rate_limits (scope_type,scope_key,scope_label) VALUES (:scope_type,:scope_key,:scope_label) '
+                . (InterfaceDB::driverName() === 'sqlite' ? 'ON CONFLICT (scope_type,scope_key) DO NOTHING' : 'ON DUPLICATE KEY UPDATE id=id'),
+            ['scope_type' => $scopeType, 'scope_key' => $scopeKey, 'scope_label' => $scopeLabel]
+        );
         $existing = $this->rowForScope($scopeType, $scopeKey);
         $windowStartedAt = $this->currentWindowStartedAt($existing, $now);
         $attempts = $this->withinWindow($windowStartedAt, $now)
@@ -189,17 +199,9 @@ final class SignupVerificationRateLimitService
         ];
 
         if ($existing === null) {
-            $idColumnsSql = '';
-            $idValuesSql = '';
-            if (InterfaceDB::driverName() === 'sqlite') {
-                $params['id'] = $this->nextId();
-                $idColumnsSql = 'id,';
-                $idValuesSql = ':id,';
-            }
 
             InterfaceDB::prepareExecute(
                 'INSERT INTO signup_verification_rate_limits (
-                    ' . $idColumnsSql . '
                     scope_type,
                     scope_key,
                     scope_label,
@@ -209,7 +211,6 @@ final class SignupVerificationRateLimitService
                     blocked_at,
                     block_expires_at
                 ) VALUES (
-                    ' . $idValuesSql . '
                     :scope_type,
                     :scope_key,
                     :scope_label,
@@ -347,8 +348,4 @@ final class SignupVerificationRateLimitService
         return in_array($scopeType, ['ip', 'session'], true) ? $scopeType : '';
     }
 
-    private function nextId(): int
-    {
-        return max(1, (int)InterfaceDB::fetchColumn('SELECT COALESCE(MAX(id), 0) + 1 FROM signup_verification_rate_limits'));
-    }
 }
