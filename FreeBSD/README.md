@@ -188,10 +188,10 @@ LoadModule proxy_module libexec/apache24/mod_proxy.so
 LoadModule proxy_fcgi_module libexec/apache24/mod_proxy_fcgi.so
 LoadModule rewrite_module libexec/apache24/mod_rewrite.so
 
-ServerName eelKit.int.elstone.net:80
+ServerName eelkit.example.com:80
 
 <VirtualHost *:80>
-    ServerName eelKit.int.elstone.net
+    ServerName eelkit.example.com
     DocumentRoot "/usr/local/eelKit/web_root"
 
     DirectoryIndex index.php index.html
